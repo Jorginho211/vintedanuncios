@@ -1,0 +1,27 @@
+{
+    "Pantalones Anchos": {
+        "default": "Y2K Super Baggy Jeans Parachute Pants Carpenter Premium Retro Made in USA Vintage 90s",
+        "levis": "Super Baggy Classic Style Original Vintage Old Money 90s"
+    },
+    "Sudaderas con capucha": {
+        "default": "Hoodie Crewneck Sudadera Y2K Streetwear Premium Retro Style Vintage Limited Edition 80s"
+    },
+    "Jerseis": {
+        "default": "Sweater Jersey Classic Y2K Premium Edition Classic AP Old Money Vintage 90s "
+    },
+    "Cortavientos.General": {
+        "default": "Track Jacket Bomber Parachute Y2K Premium Limited Edition Vintage 90s"
+    },
+    "Cortavientos.CrazyJackets": {
+        "default": "Y2K Old Money Crazy Track Jacket Cyber Retro Classic Multicolor Unique Edition 80s"
+    },
+    "Chaquetas acolchadas": {
+        "default": "Coat Puffer Bomber Parachute Y2K Premium Limited Edition Vintage 90s"
+    },
+    "Chalecos": {
+        "default": "Vest Bomber Parachute Y2K Premium Limited Edition Vintage 90s"
+    },
+    "Cardigan": {
+        "default": "Y2K Crazy Bomber Cardigan Parachute Retro Tactical Ninja Premium Vintage 90s"
+    }
+}
