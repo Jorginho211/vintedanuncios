@@ -1,0 +1,28 @@
+# Datos de anuncios y perfiles de navegador: solo se versionan los marcadores
+Data/*
+!Data/.gitkeep
+!Data/*.example
+sessions/*
+!sessions/.gitkeep
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Herramientas
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Aplicación
+logs/

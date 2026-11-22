@@ -1,0 +1,70 @@
+[tool.poetry]
+name = "vinted-anuncios"
+version = "0.1.0"
+description = "Publicador local de anuncios de Vinted y respuesta al primer mensaje"
+authors = ["xurxo"]
+readme = "README.md"
+packages = [{ include = "vinted_anuncios", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+selenium = "^4.27.0"
+apscheduler = "^3.10.4"
+typer = "^0.15.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+pytest-cov = "^6.0.0"
+mypy = "^1.13.0"
+ruff = "^0.8.4"
+pre-commit = "^4.0.1"
+detect-secrets = "^1.5.0"
+pip-audit = "^2.7.3"
+
+[tool.poetry.scripts]
+vinted = "vinted_anuncios.cli:app"
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["vinted_anuncios"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src", "tests"]
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["apscheduler", "apscheduler.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --cov=vinted_anuncios --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["vinted_anuncios"]
+omit = [
+    "src/vinted_anuncios/browser.py",
+    "src/vinted_anuncios/publisher.py",
+    "src/vinted_anuncios/replier.py",
+    "src/vinted_anuncios/scheduler.py",
+    "src/vinted_anuncios/cli.py",
+    "src/vinted_anuncios/runner.py",
+    "src/vinted_anuncios/logging_conf.py",
+]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
