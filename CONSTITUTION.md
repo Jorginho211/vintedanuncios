@@ -10,7 +10,9 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 
 1. **Simulación por defecto.** Ninguna acción escribe en Vinted salvo que se pase explícitamente `--publish`.
 2. **El sistema de archivos es la fuente de verdad.** Una carpeta de anuncio existe = anuncio pendiente. Se borra solo después de que Vinted confirme la publicación.
-3. **Separación de capas.** `metadata`, `scanner`, `config` y `models` solo producen datos; Selenium vive aislado en `browser`, `publisher` y `replier`.
+3. **Separación de capas.** `shared/` contiene datos y contratos; los handlers de
+   `features/` contienen los casos de uso; Selenium y el filesystem viven aislados
+   en `adapters/`. Los puertos de `shared/ports.py` definen la frontera.
 4. **Sin estado local para las respuestas.** Vinted determina qué conversación fue respondida; solo se escriben logs de auditoría (sin datos personales).
 5. **Seguridad por defecto.** Perfiles de navegador fuera de Git, Selenium escuchando solo en `127.0.0.1`, escaneo de secretos, logs sin mensajes de compradores.
 6. **Sin evasión de controles de la plataforma.** El riesgo de las condiciones de servicio de Vinted fue revisado y aceptado por el propietario. No se implementan mecanismos anti-CAPTCHA ni de ocultación de automatización.
@@ -24,7 +26,7 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 | Entorno y dependencias | Poetry (`pyproject.toml`, `poetry.lock`) |
 | Automatización | Selenium + Firefox (Docker, `docker-compose.yaml`) |
 | Caption | Nombre del archivo de foto; solo `pathlib`, sin librerías de metadatos |
-| Scheduler | APScheduler, cron `0 16 * * *`, `Europe/Madrid` configurable por `TZ` |
+| Scheduler | APScheduler, cron `0 16 * * *`, `Europe/Madrid` configurable por `TIMEZONE` |
 | CLI | Typer |
 | Calidad | Ruff, mypy estricto, pytest, pre-commit (Ruff + mypy + detect-secrets), pip-audit manual |
 
@@ -53,6 +55,9 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 - Selección del título: nombre de carpeta de categoría (coincidencia exacta; los puntos son literales) + `marca.lower()`. Si no hay variante, se usa `default` sin aviso.
 - `Data/description.txt`: descripción común a todas las categorías; se usa tal cual. Si aparece el placeholder `{{TALLA}}`, se deja **literal** y se resolverá en una iteración futura.
 - `Data/reply_added_favorites.txt`: plantilla global de respuesta. Si no existe, el módulo de respuestas se omite con un aviso.
+- Las variables de entorno se leen y validan una sola vez en `shared/settings.py`;
+  `config.py` queda reservado a la configuración de dominio de `Data/`. Los nombres
+  de entorno van en inglés, igual que los identificadores de código.
 
 ### Árbol
 
@@ -63,7 +68,7 @@ sessions/<Cuenta>/                    (perfil Firefox; contenido ignorado por Gi
 
 ## 5. Estándares
 
-- Código en inglés; documentación y logs en español.
+- Código y variables de entorno en inglés; documentación y logs en español.
 - Ruff para formato y lint; mypy en modo estricto.
 - Conventional Commits.
 - `main` + ramas cortas para cambios grandes.

@@ -2,8 +2,9 @@
 
 ## Niveles
 
-- **Unitarios** (`tests/unit/`): parseo de caption, medidas, selección de título,
-  carga de configuración y recorrido del árbol. Sin navegador ni red.
+- **Unitarios** (`tests/unit/`): `shared/` (settings, caption, títulos y contratos)
+  y `features/` (query de escaneo y comandos de publicación/respuesta). Los tests
+  de `run_sweep` inyectan un runtime falso: sin navegador ni red.
 - **Integración** (`tests/integration/`): lectura real de la caption desde el
   nombre de una foto y comprobación de selectores contra un snapshot HTML.
 - **E2E:** no automatizado. La verificación contra Vinted se hace con
@@ -11,8 +12,9 @@
 
 ## Cobertura
 
-Objetivo: **80 %** sobre la lógica pura (`config`, `metadata`, `models`,
-`scanner`). Los módulos de Selenium quedan excluidos de la medición.
+Objetivo: **80 %** sobre la lógica pura (`settings`, `config`, `metadata`,
+`models`, `ports` y los handlers de `features/`). Los adapters de Selenium, el
+runtime, el scheduler y la CLI quedan excluidos de la medición.
 
 ## Fixtures
 

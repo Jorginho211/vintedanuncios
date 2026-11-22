@@ -2,43 +2,49 @@
 
 ## Visión general
 
-El proceso se lanza una vez al día o bajo demanda. Por defecto trabaja en modo
-simulación; solo con `--publish` interactúa con Vinted.
+El proceso se lanza una vez al día o bajo demanda. `cli` y `scheduler` leen el
+entorno una sola vez, construyen `Settings` y `Mode` y los inyectan. Por defecto
+trabaja en simulación; solo con `--publish` interactúa con Vinted.
 
 ```
-scheduler.py (16:00 Europe/Madrid)
-        |
-        v
-   runner.run_once()
-        |
-        +-- config.load_config(Data/)  -> títulos y descripción
-        |
-        +-- scanner.scan(Data/)        -> Listing[]  (sin Selenium)
-        |
-        +-- por cuenta (secuencial):
-              browser.create_driver(sessions/<Cuenta>)
-              publisher.publish(...)
-              si exito y --publish -> borrar carpeta del anuncio
-        |
-        +-- replier.reply_to_favorites(...)  (plantilla de Data/reply_added_favorites.txt)
+cli / scheduler  ->  Settings + Mode
+                          |
+                          v
+                  features/run_sweep  (composición)
+                          |
+          +---------------+---------------+
+          |               |               |
+   validate + load   scan_listings     runtime elige
+   config/template   (Query) -> []     adapters reales o no-op
+                          |               |
+                          |         publish_listings (Command)
+                          |         -> borrar solo con confirmación
+                          |         reply_favorites (Command)
+                          +-------------------------------+
 ```
 
 ## Componentes
 
-| Módulo | Responsabilidad | ¿Toca Selenium? |
+| Módulo | Responsabilidad | ¿Toca Selenium/filesystem? |
 |---|---|---|
-| `models` | Estructuras de datos inmutables | No |
-| `metadata` | Parseo de la caption desde el nombre del archivo | No |
-| `config` | Carga de `config.json` y `description.txt`; selección de título | No |
-| `scanner` | Recorrido del árbol y construcción de `Listing` | No |
-| `selectors` | Selectores CSS y textos disparadores centralizados | No |
-| `browser` | Creación y cierre del driver por cuenta | Sí |
-| `publisher` | Relleno del formulario y publicación | Sí |
-| `replier` | Detección de favoritos y envío de la plantilla | Sí |
-| `runner` | Orquestación del barrido | Sí (indirecto) |
-| `scheduler` | Trigger cron y control de solapamientos | No |
-| `cli` | Interfaz Typer | No |
-| `logging_conf` | Configuración de logs | No |
+| `shared/settings.py` | Variables de entorno validadas, leídas una vez | No |
+| `shared/config.py` | `config.json`, descripción y plantilla de respuesta | Solo lectura de `Data/` |
+| `shared/models.py` | Datos inmutables y `Mode` | No |
+| `shared/ports.py` | Contratos: driver, publisher, replier, store, runtime | No |
+| `shared/pause.py` | Pausas configurables | No |
+| `shared/logging_conf.py` | Configuración de logs | No |
+| `adapters/selectors.py` | Selectores CSS y textos de Vinted | No |
+| `adapters/selenium_driver.py` | Driver remoto por cuenta | Sí |
+| `adapters/vinted_publisher.py` | Formulario de publicación | Sí |
+| `adapters/vinted_replier.py` | Avisos de favorito y respuesta | Sí |
+| `adapters/vinted_wait.py` | Esperas y relleno de campos compartidos | Sí |
+| `adapters/filesystem.py` | Borrado de carpetas | Sí |
+| `features/scan_listings/` | Query que resuelve los anuncios del árbol | No |
+| `features/publish_listings/` | Command de publicación + simulación | No |
+| `features/reply_favorites/` | Command de respuesta + simulación | No |
+| `features/run_sweep/` | Orquestación y selección de adapters según `Mode` | Indirecto |
+| `scheduler.py` | Trigger cron y control de solapamientos | No |
+| `cli.py` | Composition root de Typer | No |
 
 ## Contrato de datos
 
@@ -57,11 +63,34 @@ Respuesta: contenido literal de `Data/reply_added_favorites.txt`.
 
 Los tres archivos de configuración (`config.json`, `description.txt` y
 `reply_added_favorites.txt`) son obligatorios: `validate_data_dir()` se ejecuta
-antes de escanear y `cli` termina con código 1 si falta alguno. Las plantillas
-versionadas son `*.example` en `Data/`.
+una sola vez en `run_sweep` y `cli` termina con código 1 si falta alguno.
+
+## Variables de entorno
+
+| Variable | Default |
+|---|---|
+| `DATA_DIR` | `Data` |
+| `PROFILES_DIR` | `sessions` |
+| `SELENIUM_URL` | `http://127.0.0.1:4444` |
+| `SELENIUM_WAIT_SECONDS` | `15` |
+| `PAUSE_BETWEEN_LISTINGS` | `0` |
+| `PAUSE_BETWEEN_ACCOUNTS` | `0` |
+| `TIMEZONE` | `Europe/Madrid` |
+
+`load_settings(environ=None)` centraliza defaults y validación. `TZ` es ignorada
+por la aplicación y los nombres antiguos de las pausas no se reconocen: el
+proyecto aún no está en producción y no se mantiene compatibilidad.
 
 ## Decisiones
 
+- **Command/Query ligero:** cada caso de uso tiene un objeto de entrada y un
+  handler. No hay stores separados, bus de eventos ni event sourcing: no hay base
+  de datos y la constitución establece que el filesystem es la fuente de verdad.
+- **Slices verticales:** `scan_listings`, `publish_listings`, `reply_favorites` y
+  `run_sweep` agrupan la lógica por caso de uso; `shared/` aporta los contratos.
+- **Simulación por composición:** en `Mode.DRY_RUN` el runtime devuelve publishers
+  y store de no-op y no crea ningún driver. Los handlers no reciben flags
+  `dry_run` ni drivers nulos.
 - Procesamiento **secuencial** de cuentas (una sola sesión activa por vez).
 - Pausas configurables por estabilidad, no para evadir controles.
 - Un error en un anuncio se registra y no aborta el barrido.
@@ -71,7 +100,7 @@ versionadas son `*.example` en `Data/`.
 
 ## Riesgos conocidos / pendientes
 
-- Los selectores de `selectors.py` son provisionales: validar contra la web real.
+- Los selectores de `adapters/selectors.py` son provisionales: validar contra la web real.
 - La ubicación de la alerta de favorito está pendiente de confirmar.
 - La caption se lee del nombre del archivo con `pathlib.stem`; no se usan metadatos ni librerías externas.
 - El perfil de Firefox en `sessions/<Cuenta>/` debe verificarse entre ejecuciones.

@@ -48,6 +48,22 @@ Para dejar el job programado a las 16:00 de `Europe/Madrid`:
 poetry run vinted --publish --schedule
 ```
 
+## Variables de entorno
+
+Todas se leen una sola vez al arrancar y se validan en `shared/settings.py`.
+Los nombres siguen el mismo patrón en inglés que el código; `.env.example` los
+documenta con sus valores por defecto:
+
+| Variable | Default | Uso |
+|---|---|---|
+| `DATA_DIR` | `Data` | Árbol de anuncios |
+| `PROFILES_DIR` | `sessions` | Perfiles de Firefox por cuenta |
+| `SELENIUM_URL` | `http://127.0.0.1:4444` | Grid de Selenium |
+| `SELENIUM_WAIT_SECONDS` | `15` | Espera máxima del navegador |
+| `PAUSE_BETWEEN_LISTINGS` | `0` | Pausa entre anuncios |
+| `PAUSE_BETWEEN_ACCOUNTS` | `0` | Pausa entre cuentas |
+| `TIMEZONE` | `Europe/Madrid` | Zona horaria del job (`TZ` es ignorada) |
+
 ## Estado
 
 Proyecto en fase inicial. Los pendientes están listados en la constitución y en
