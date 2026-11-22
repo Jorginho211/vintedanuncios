@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from vinted_anuncios.metadata import (
+from vinted_anuncios.shared.metadata import (
     CaptionError,
     caption_from_filename,
     parse_caption,

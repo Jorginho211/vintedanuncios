@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
+
+
+class Mode(StrEnum):
+    """Única fuente de verdad sobre si se escribe o no en Vinted."""
+
+    DRY_RUN = "dry-run"
+    PUBLISH = "publish"
 
 
 @dataclass(frozen=True, slots=True)

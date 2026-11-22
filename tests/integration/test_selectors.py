@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from vinted_anuncios import selectors
+from vinted_anuncios.adapters import selectors
 
 SNAPSHOT = Path(__file__).resolve().parents[1] / "fixtures" / "vinted_snapshot.html"
 SELECTOR_RE = re.compile(r"^\[([^=]+)='([^']+)'\]$")

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from vinted_anuncios.config import (
+from vinted_anuncios.shared.config import (
     ConfigError,
     load_config,
     load_reply_template,
@@ -13,7 +13,7 @@ from vinted_anuncios.config import (
     validate_data_dir,
 )
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "Data"
+DATA_DIR = Path(__file__).resolve().parents[3] / "Data"
 
 
 def test_load_config_lee_archivos_reales() -> None:

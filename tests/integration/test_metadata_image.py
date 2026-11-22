@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from vinted_anuncios.metadata import parse_caption_from_filename
+from vinted_anuncios.shared.metadata import parse_caption_from_filename
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 

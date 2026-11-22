@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-import os
-from zoneinfo import ZoneInfo
+import logging
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from .runner import run_once
+from .features.run_sweep.handler import run_sweep
+from .shared.models import Mode
+from .shared.settings import Settings
 
 
-def start(*, publish: bool) -> None:
+def start(settings: Settings, mode: Mode, *, logger: logging.Logger) -> None:
     """Mantiene el proceso vivo y lanza el barrido a las 16:00 locales."""
-    timezone = ZoneInfo(os.getenv("TZ", "Europe/Madrid"))
-    scheduler = BlockingScheduler(timezone=timezone)
-    trigger = CronTrigger.from_crontab("0 16 * * *", timezone=timezone)
+    scheduler = BlockingScheduler(timezone=settings.timezone)
+    trigger = CronTrigger.from_crontab("0 16 * * *", timezone=settings.timezone)
     scheduler.add_job(
-        run_once,
+        run_sweep,
         trigger,
-        kwargs={"publish": publish},
+        kwargs={"settings": settings, "mode": mode, "logger": logger},
         id="barrido_diario",
         max_instances=1,
         coalesce=True,

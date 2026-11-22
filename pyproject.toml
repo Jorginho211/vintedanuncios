@@ -57,13 +57,11 @@ addopts = "-q --cov=vinted_anuncios --cov-report=term-missing"
 [tool.coverage.run]
 source = ["vinted_anuncios"]
 omit = [
-    "src/vinted_anuncios/browser.py",
-    "src/vinted_anuncios/publisher.py",
-    "src/vinted_anuncios/replier.py",
+    "src/vinted_anuncios/adapters/*",
+    "src/vinted_anuncios/features/run_sweep/runtime.py",
     "src/vinted_anuncios/scheduler.py",
     "src/vinted_anuncios/cli.py",
-    "src/vinted_anuncios/runner.py",
-    "src/vinted_anuncios/logging_conf.py",
+    "src/vinted_anuncios/shared/logging_conf.py",
 ]
 
 [tool.coverage.report]

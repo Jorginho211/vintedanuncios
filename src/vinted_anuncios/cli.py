@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
 import typer
 
-from . import scheduler
-from .config import ConfigError, validate_data_dir
-from .runner import run_once
+from .features.run_sweep.handler import run_sweep
+from .scheduler import start
+from .shared.config import ConfigError
+from .shared.logging_conf import setup_logging
+from .shared.models import Mode
+from .shared.settings import SettingsError, load_settings
 
 app = typer.Typer(help="Publicador local de anuncios de Vinted (modo simulación por defecto)")
 
@@ -20,13 +20,14 @@ def main(
 ) -> None:
     """Recorre Data y aplica el barrido. Sin --publish no se escribe en Vinted."""
     try:
-        validate_data_dir(Path(os.getenv("DATA_DIR", "Data")))
-        do_publish = publish and not dry_run
+        settings = load_settings()
+        logger = setup_logging(settings.log_dir)
+        mode = Mode.PUBLISH if publish and not dry_run else Mode.DRY_RUN
         if schedule:
-            scheduler.start(publish=do_publish)
+            start(settings, mode, logger=logger)
         else:
-            run_once(publish=do_publish)
-    except ConfigError as exc:
+            run_sweep(settings, mode, logger=logger)
+    except (ConfigError, SettingsError) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 

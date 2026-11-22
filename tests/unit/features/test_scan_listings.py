@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from vinted_anuncios.config import load_config
-from vinted_anuncios.scanner import scan
+from vinted_anuncios.features.scan_listings.handler import handle
+from vinted_anuncios.features.scan_listings.query import ScanListings
+from vinted_anuncios.shared.config import load_config
+from vinted_anuncios.shared.models import ScanResult
 
 
 def _prepare(tmp_path: Path, *, image_name: str | None = "25;40x30;Levis;501.HEIC") -> Path:
@@ -23,9 +25,14 @@ def _prepare(tmp_path: Path, *, image_name: str | None = "25;40x30;Levis;501.HEI
     return folder
 
 
+def _scan(tmp_path: Path) -> ScanResult:
+    data_dir = tmp_path / "Data"
+    return handle(ScanListings(data_dir=data_dir, config=load_config(data_dir)))
+
+
 def test_scan_construye_listing_desde_el_nombre_del_archivo(tmp_path: Path) -> None:
     folder = _prepare(tmp_path)
-    result = scan(tmp_path / "Data", load_config(tmp_path / "Data"))
+    result = _scan(tmp_path)
     assert result.errors == ()
     assert len(result.listings) == 1
     listing = result.listings[0]
@@ -39,20 +46,20 @@ def test_scan_construye_listing_desde_el_nombre_del_archivo(tmp_path: Path) -> N
 
 def test_scan_ignora_config_y_description(tmp_path: Path) -> None:
     _prepare(tmp_path, image_name=None)
-    result = scan(tmp_path / "Data", load_config(tmp_path / "Data"))
+    result = _scan(tmp_path)
     assert any("imágenes" in error for error in result.errors)
 
 
 def test_scan_sin_caption_en_el_nombre_registra_error(tmp_path: Path) -> None:
     _prepare(tmp_path, image_name="foto.HEIC")
-    result = scan(tmp_path / "Data", load_config(tmp_path / "Data"))
+    result = _scan(tmp_path)
     assert any("caption" in error for error in result.errors)
 
 
 def test_scan_prueba_siguiente_imagen_si_la_primera_no_tiene_caption(tmp_path: Path) -> None:
     folder = _prepare(tmp_path, image_name="foto.HEIC")
     (folder / "20;30x40.HEIC").write_bytes(b"foto")
-    result = scan(tmp_path / "Data", load_config(tmp_path / "Data"))
+    result = _scan(tmp_path)
     assert result.errors == ()
     assert len(result.listings) == 1
     assert result.listings[0].caption.price == 20.0
