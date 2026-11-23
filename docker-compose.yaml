@@ -2,15 +2,23 @@ services:
   selenium:
     image: selenium/standalone-firefox:111.0.1-20261120
     container_name: selenium-firefox
+    user: "1000:1000"
     shm_size: 1gb
+    tmpfs:
+      - /var/log/supervisor:uid=1000,gid=1000,mode=1777 
     environment:
       - SE_NODE_MAX_SESSIONS=2
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
       - SE_NODE_SESSION_TIMEOUT=1800
+      - HOME=/tmp
+      - XDG_CONFIG_HOME=/tmp/.config
+      - XDG_CACHE_HOME=/tmp/.cache
+      - CONFIG_FILE=/tmp/config.toml
+      - VNC_NO_PASSWORD=true
     ports:
       - "127.0.0.1:4444:4444"
       - "127.0.0.1:7900:7900"
     volumes:
-      - ./sessions:/sessions
+      - ./sessions:/sessions:rw
       - ./Data:/Data:ro
     restart: unless-stopped
