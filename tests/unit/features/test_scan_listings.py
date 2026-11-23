@@ -9,13 +9,13 @@ from vinted_anuncios.shared.config import load_config
 from vinted_anuncios.shared.models import ScanResult
 
 
-def _prepare(tmp_path: Path, *, image_name: str | None = "25;40x30;Levis;501.HEIC") -> Path:
+def _prepare(tmp_path: Path, *, image_name: str | None = "25;40x30;Levis;501.JPG") -> Path:
     data_dir = tmp_path / "Data"
-    folder = data_dir / "Cuenta A" / "Pantalones Anchos" / "Anuncio 1"
+    folder = data_dir / "Cuenta A" / "Cortavientos.General" / "Anuncio 1"
     folder.mkdir(parents=True)
     (data_dir / "config.json").write_text(
         json.dumps(
-            {"Pantalones Anchos": {"default": "Título por defecto", "levis": "Título Levis"}}
+            {"Cortavientos.General": {"default": "Título por defecto", "levis": "Título Levis"}}
         ),
         encoding="utf-8",
     )
@@ -30,36 +30,45 @@ def _scan(tmp_path: Path) -> ScanResult:
     return handle(ScanListings(data_dir=data_dir, config=load_config(data_dir)))
 
 
-def test_scan_construye_listing_desde_el_nombre_del_archivo(tmp_path: Path) -> None:
-    folder = _prepare(tmp_path)
+def test_scan_separa_categoria_de_config_y_de_formulario(tmp_path: Path) -> None:
+    _prepare(tmp_path)
     result = _scan(tmp_path)
     assert result.errors == ()
     assert len(result.listings) == 1
     listing = result.listings[0]
     assert listing.account == "Cuenta A"
-    assert listing.category == "Pantalones Anchos"
-    assert listing.title == "Título Levis"
+    assert listing.config_category == "Cortavientos.General"
+    assert listing.form_category == "Cortavientos"
+    assert listing.title == "Levis 501 Título Levis"
     assert listing.description == "Descripción común"
     assert listing.caption.model == "501"
-    assert listing.folder == folder
+    assert listing.caption.brand == "Levis"
+    assert listing.caption.price == 25.0
+
+
+def test_scan_sin_caption_en_el_nombre_registra_error(tmp_path: Path) -> None:
+    _prepare(tmp_path, image_name="foto.JPG")
+    result = _scan(tmp_path)
+    assert any("caption" in error for error in result.errors)
+
+
+def test_scan_prueba_siguiente_imagen_si_la_primera_no_tiene_caption(tmp_path: Path) -> None:
+    folder = _prepare(tmp_path, image_name="foto.JPG")
+    (folder / "20;30x40.JPG").write_bytes(b"foto")
+    result = _scan(tmp_path)
+    assert result.errors == ()
+    assert len(result.listings) == 1
+    assert result.listings[0].caption.price == 20.0
+
+
+def test_scan_rechaza_heic_con_mensaje_explicito(tmp_path: Path) -> None:
+    folder = _prepare(tmp_path, image_name=None)
+    (folder / "25;40x30;Levis;501.HEIC").write_bytes(b"foto")
+    result = _scan(tmp_path)
+    assert any("HEIC" in error and "JPEG" in error for error in result.errors)
 
 
 def test_scan_ignora_config_y_description(tmp_path: Path) -> None:
     _prepare(tmp_path, image_name=None)
     result = _scan(tmp_path)
     assert any("imágenes" in error for error in result.errors)
-
-
-def test_scan_sin_caption_en_el_nombre_registra_error(tmp_path: Path) -> None:
-    _prepare(tmp_path, image_name="foto.HEIC")
-    result = _scan(tmp_path)
-    assert any("caption" in error for error in result.errors)
-
-
-def test_scan_prueba_siguiente_imagen_si_la_primera_no_tiene_caption(tmp_path: Path) -> None:
-    folder = _prepare(tmp_path, image_name="foto.HEIC")
-    (folder / "20;30x40.HEIC").write_bytes(b"foto")
-    result = _scan(tmp_path)
-    assert result.errors == ()
-    assert len(result.listings) == 1
-    assert result.listings[0].caption.price == 20.0

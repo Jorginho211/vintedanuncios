@@ -6,9 +6,11 @@ services:
     environment:
       - SE_NODE_MAX_SESSIONS=2
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      - SE_NODE_SESSION_TIMEOUT=1800
     ports:
       - "127.0.0.1:4444:4444"
       - "127.0.0.1:7900:7900"
     volumes:
       - ./sessions:/sessions
+      - ./Data:/Data:ro
     restart: unless-stopped

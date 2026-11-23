@@ -8,11 +8,13 @@ from pathlib import Path
 import pytest
 
 from vinted_anuncios.adapters.filesystem import FilesystemListingStore
+from vinted_anuncios.features.reply_favorites.dry_run import DryRunFavoriteReplier
 from vinted_anuncios.features.run_sweep import runtime as runtime_module
 from vinted_anuncios.features.run_sweep.handler import run_publish, run_reply, run_sweep
 from vinted_anuncios.features.run_sweep.noop_store import NoOpListingStore
+from vinted_anuncios.features.run_sweep.runtime import SeleniumRuntime
 from vinted_anuncios.shared.config import ConfigError
-from vinted_anuncios.shared.models import Listing, Mode, PublishResult, ReplyResult
+from vinted_anuncios.shared.models import Caption, Listing, Mode, PublishResult, ReplyResult
 from vinted_anuncios.shared.ports import (
     DriverPort,
     ElementPort,
@@ -22,7 +24,7 @@ from vinted_anuncios.shared.ports import (
 )
 from vinted_anuncios.shared.settings import Settings, load_settings
 
-IMAGE_NAME = "25;40x30;Levis.HEIC"
+IMAGE_NAME = "25;40x30;Levis;501.JPG"
 LOGGER = logging.getLogger("test")
 
 
@@ -77,6 +79,7 @@ class FakeRuntime:
         self.store = store
         self.closed = False
         self.replier_accounts: list[str] = []
+        self.released: list[str] = []
 
     def publisher_for(self, account: str) -> ListingPublisher:
         return self._publisher
@@ -85,12 +88,22 @@ class FakeRuntime:
         self.replier_accounts.append(account)
         return self._replier
 
+    def release(self, account: str) -> None:
+        self.released.append(account)
+
     def close(self) -> None:
         self.closed = True
 
 
 class StubVintedPublisher:
-    def __init__(self, driver: DriverPort, settings: Settings, logger: logging.Logger) -> None:
+    def __init__(
+        self,
+        driver: DriverPort,
+        settings: Settings,
+        logger: logging.Logger,
+        *,
+        submit: bool = True,
+    ) -> None:
         pass
 
     def publish(self, listing: Listing) -> PublishResult:
@@ -168,7 +181,9 @@ def test_dry_run_no_crea_navegador_ni_borra(
     assert (folder / IMAGE_NAME).exists()
 
 
-def test_publish_crea_driver_y_lo_cierra(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sweep_abre_sesion_solo_para_la_cuenta_con_anuncios_y_la_cierra(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _prepare(tmp_path)
     created: list[str] = []
     closed: list[DriverPort] = []
@@ -178,14 +193,14 @@ def test_publish_crea_driver_y_lo_cierra(tmp_path: Path, monkeypatch: pytest.Mon
 
     run_sweep(_settings(tmp_path), Mode.PUBLISH, logger=LOGGER)
 
-    assert created == ["Cuenta"]
-    assert len(closed) == 1
+    assert created == ["Cuenta", "Cuenta"]
+    assert len(closed) == 2
 
 
 def test_publish_borra_carpeta_tras_confirmacion(tmp_path: Path) -> None:
     folder = _prepare(tmp_path)
     publisher = RecordingPublisher(PublishResult(ok=True, message="publicado"))
-    runtime = FakeRuntime(publisher, FilesystemListingStore())
+    runtime = FakeRuntime(publisher, FilesystemListingStore(_settings(tmp_path).data_dir))
 
     run_sweep(
         _settings(tmp_path),
@@ -202,7 +217,7 @@ def test_publish_borra_carpeta_tras_confirmacion(tmp_path: Path) -> None:
 def test_confirmacion_fallida_no_borra_carpeta(tmp_path: Path) -> None:
     folder = _prepare(tmp_path)
     publisher = RecordingPublisher(PublishResult(ok=False, message="fallo"))
-    runtime = FakeRuntime(publisher, FilesystemListingStore())
+    runtime = FakeRuntime(publisher, FilesystemListingStore(_settings(tmp_path).data_dir))
 
     run_sweep(
         _settings(tmp_path),
@@ -354,3 +369,58 @@ def test_run_reply_publish_crea_y_cierra_driver_por_cuenta(
 
     assert created == ["CuentaA", "CuentaB"]
     assert len(closed) == 2
+
+
+def test_simulate_send_no_crea_driver_hasta_que_hay_trabajo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created: list[str] = []
+    closed: list[DriverPort] = []
+    _patch_factory(monkeypatch, created, closed)
+    settings = _settings(tmp_path)
+    runtime = SeleniumRuntime(settings, Mode.SIMULATE_SEND, ("Cuenta",), LOGGER)
+
+    assert created == []
+    assert isinstance(runtime.store, FilesystemListingStore)
+    assert isinstance(runtime.replier_for("Cuenta"), DryRunFavoriteReplier)
+    assert created == []
+    runtime.close()
+
+
+def test_simulate_send_configura_el_publicador_sin_submit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created: list[str] = []
+    closed: list[DriverPort] = []
+    _patch_factory(monkeypatch, created, closed)
+    captured: dict[str, bool] = {}
+
+    class CapturePublisher:
+        def __init__(
+            self, driver: DriverPort, settings: Settings, logger: logging.Logger, *, submit: bool
+        ) -> None:
+            captured["submit"] = submit
+
+        def publish(self, listing: Listing) -> PublishResult:
+            return PublishResult(ok=True, message="simulado")
+
+    monkeypatch.setattr(runtime_module, "VintedListingPublisher", CapturePublisher)
+    runtime = SeleniumRuntime(_settings(tmp_path), Mode.SIMULATE_SEND, ("Cuenta",), LOGGER)
+
+    runtime.publisher_for("Cuenta").publish(
+        Listing(
+            account="Cuenta",
+            config_category="Pantalones Anchos",
+            form_category="Pantalones Anchos",
+            folder=Path("Data/Cuenta/Pantalones Anchos/Anuncio"),
+            images=(),
+            caption=Caption(1.0, 1.0, 1.0, None, None),
+            title="Titulo",
+            description="Descripcion",
+        )
+    )
+
+    assert captured["submit"] is False
+    assert created == ["Cuenta"]
+    runtime.close()
+    assert len(closed) == 1

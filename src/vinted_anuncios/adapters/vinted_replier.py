@@ -6,10 +6,11 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException,
 from selenium.webdriver.common.by import By
 
 from ..shared.models import ReplyResult
+from ..shared.pause import ActionPacer
 from ..shared.ports import DriverPort
 from ..shared.settings import Settings
 from . import selectors
-from .vinted_wait import wait_for, wait_for_all, wait_for_clickable
+from .vinted_wait import click_css, fill, wait_for_all
 
 
 class VintedFavoriteReplier:
@@ -19,6 +20,10 @@ class VintedFavoriteReplier:
         self._driver = driver
         self._settings = settings
         self._logger = logger
+        self._pacer = ActionPacer(settings.action_delay_min, settings.action_delay_max)
+
+    def _pace(self) -> None:
+        self._pacer.pause()
 
     def reply(self, template: str) -> ReplyResult:
         timeout = self._settings.wait_seconds
@@ -27,6 +32,7 @@ class VintedFavoriteReplier:
         errors: list[str] = []
         try:
             driver.get(selectors.NOTIFICATIONS_URL)
+            self._pace()
             notices = wait_for_all(driver, selectors.SELECTOR_NOTIFICATION, timeout)
             favorites = [
                 notice for notice in notices if selectors.FAVORITE_TEXT in notice.text.lower()
@@ -35,6 +41,7 @@ class VintedFavoriteReplier:
             for index, notice in enumerate(favorites):
                 try:
                     notice.click()
+                    self._pace()
                     conversations = driver.find_elements(
                         By.CSS_SELECTOR, selectors.SELECTOR_CONVERSATION
                     )
@@ -46,10 +53,10 @@ class VintedFavoriteReplier:
                     conversation_id = (
                         conversations[0].get_attribute("data-conversation-id") or "desconocido"
                     )
-                    field = wait_for(driver, selectors.SELECTOR_MESSAGE_INPUT, timeout)
-                    field.send_keys(template)
-                    send = wait_for_clickable(driver, selectors.SELECTOR_SEND, timeout)
-                    send.click()
+                    fill(driver, selectors.SELECTOR_MESSAGE_INPUT, template, timeout)
+                    self._pace()
+                    click_css(driver, selectors.SELECTOR_SEND, timeout)
+                    self._pace()
                     replied.append(conversation_id)
                 except (NoSuchElementException, TimeoutException, WebDriverException) as exc:
                     errors.append(f"aviso {index}: {exc}")

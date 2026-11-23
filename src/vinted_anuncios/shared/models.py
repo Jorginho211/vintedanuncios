@@ -9,6 +9,7 @@ class Mode(StrEnum):
     """Única fuente de verdad sobre si se escribe o no en Vinted."""
 
     DRY_RUN = "dry-run"
+    SIMULATE_SEND = "simulate-send"
     PUBLISH = "publish"
 
 
@@ -28,7 +29,8 @@ class Listing:
     """Anuncio pendiente, ya resuelto con su título y descripción."""
 
     account: str
-    category: str
+    config_category: str
+    form_category: str
     folder: Path
     images: tuple[Path, ...]
     caption: Caption

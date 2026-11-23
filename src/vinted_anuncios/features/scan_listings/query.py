@@ -7,11 +7,17 @@ from ...shared.config import Config
 from ...shared.metadata import CaptionError, parse_caption_from_filename
 from ...shared.models import Caption
 
-IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".heic", ".heif"})
+IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png"})
+UNSUPPORTED_IMAGE_SUFFIXES = frozenset({".heic", ".heif"})
 
 
 class ScanError(ValueError):
     """Una carpeta no se pudo convertir en anuncio."""
+
+
+def form_category_from(config_category: str) -> str:
+    """Quita el sufijo de configuración: `Cortavientos.General` -> `Cortavientos`."""
+    return config_category.split(".", 1)[0]
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +46,9 @@ def caption_from_images(images: tuple[Path, ...]) -> Caption:
 
 __all__ = [
     "IMAGE_SUFFIXES",
+    "UNSUPPORTED_IMAGE_SUFFIXES",
     "ScanError",
+    "form_category_from",
     "ScanListings",
     "caption_from_images",
     "subdirectories",

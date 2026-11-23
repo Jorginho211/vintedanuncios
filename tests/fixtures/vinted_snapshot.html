@@ -1,16 +1,38 @@
 <!doctype html>
 <html lang="es">
   <body>
-    <a data-vinted="sell-link" href="/sell">Vender</a>
-    <input data-vinted-field="title" />
-    <textarea data-vinted-field="description"></textarea>
-    <input data-vinted-field="price" />
-    <input data-vinted-field="brand" />
-    <input data-vinted-field="model" />
-    <input data-vinted-field="category" />
-    <input data-vinted-field="photos" type="file" />
-    <button data-vinted="publish">Publicar</button>
-    <div data-vinted="publish-success">Anuncio publicado</div>
+    <a href="/items/new">Vender ahora</a>
+    <button id="accept-recommended-btn-handler">Aceptar todas</button>
+    <input data-testid="add-photos-input" type="file" />
+    <span data-testid="upload-button-loader"></span>
+    <div data-testid="item-upload-critical-error-dialog"></div>
+    <input id="title" />
+    <textarea id="description"></textarea>
+    <input id="price" />
+    <input data-testid="catalog-select-dropdown-input" />
+    <input id="catalog-search-input" />
+    <div data-testid="catalog-select-dropdown-content">
+      <div role="radio" id="catalog-search-260-result"></div>
+    </div>
+    <input data-testid="brand-select-dropdown-input" />
+    <input id="brand-search-input" />
+    <div data-testid="brand-select-dropdown-content">
+      <div role="radio" id="brand-10"></div>
+    </div>
+    <input data-testid="color-select-dropdown-input" />
+    <div role="group" aria-labelledby="color-suggestions-label">
+      <div role="checkbox" id="suggested-color-26"></div>
+    </div>
+    <div role="group" aria-labelledby="color-list-label">
+      <div role="checkbox" id="color-1"></div>
+    </div>
+    <input data-testid="category-condition-single-list-input" />
+    <div role="radio" id="condition-2">Muy bueno</div>
+    <input id="package_type_selector_1" type="radio" />
+    <div id="package-size-1" role="button" data-testid="1-package-size--cell">Pequeño</div>
+    <button data-testid="upload-form-save-button">Subir</button>
+    <div class="ReactModal__Overlay"></div>
+    <button>Descartar cambios</button>
     <div data-vinted="notification">Alguien ha marcado como favorito tu artículo</div>
     <div data-vinted="conversation" data-conversation-id="conv-1"></div>
     <div data-vinted="message-out"></div>

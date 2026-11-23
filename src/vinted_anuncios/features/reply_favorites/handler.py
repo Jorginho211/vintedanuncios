@@ -15,16 +15,20 @@ def handle(
     replier_for: Callable[[str], FavoriteReplier],
     logger: logging.Logger,
     pause_seconds: float,
+    release: Callable[[str], None] = lambda _account: None,
 ) -> ReplyResult:
     replied: list[str] = []
     errors: list[str] = []
     for account in command.accounts:
-        result = replier_for(account).reply(command.template)
-        for error in result.errors:
-            logger.error("[%s] %s", account, error)
-        for conversation_id in result.replied:
-            logger.info("[%s] Respondida conversación %s", account, conversation_id)
-        replied.extend(result.replied)
-        errors.extend(result.errors)
-        pause(pause_seconds)
+        try:
+            result = replier_for(account).reply(command.template)
+            for error in result.errors:
+                logger.error("[%s] %s", account, error)
+            for conversation_id in result.replied:
+                logger.info("[%s] Respondida conversación %s", account, conversation_id)
+            replied.extend(result.replied)
+            errors.extend(result.errors)
+            pause(pause_seconds)
+        finally:
+            release(account)
     return ReplyResult(replied=tuple(replied), errors=tuple(errors))

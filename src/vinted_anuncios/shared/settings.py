@@ -17,11 +17,14 @@ class Settings:
     """Valores de runtime leídos una sola vez del entorno."""
 
     data_dir: Path
+    selenium_data_dir: Path
     profiles_dir: Path
     selenium_url: str
     timezone: ZoneInfo
     reply_cron: str
     wait_seconds: float
+    action_delay_min: float
+    action_delay_max: float
     pause_between_listings: float
     pause_between_accounts: float
     log_dir: Path
@@ -62,13 +65,21 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     if not reply_cron:
         raise SettingsError("REPLY_CRON no puede estar vacía")
 
+    action_delay_min = _number(env, "SELENIUM_ACTION_DELAY_MIN", 0.5, positive=False)
+    action_delay_max = _number(env, "SELENIUM_ACTION_DELAY_MAX", 1.5, positive=False)
+    if action_delay_min > action_delay_max:
+        raise SettingsError("SELENIUM_ACTION_DELAY_MIN no puede superar SELENIUM_ACTION_DELAY_MAX")
+
     return Settings(
         data_dir=Path(env.get("DATA_DIR", "Data")),
+        selenium_data_dir=Path(env.get("SELENIUM_DATA_DIR", "/Data")),
         profiles_dir=Path(env.get("PROFILES_DIR", "sessions")),
         selenium_url=_check_url(env.get("SELENIUM_URL", "http://127.0.0.1:4444")),
         timezone=timezone,
         reply_cron=reply_cron,
         wait_seconds=_number(env, "SELENIUM_WAIT_SECONDS", 15.0, positive=True),
+        action_delay_min=action_delay_min,
+        action_delay_max=action_delay_max,
         pause_between_listings=_number(env, "PAUSE_BETWEEN_LISTINGS", 0.0, positive=False),
         pause_between_accounts=_number(env, "PAUSE_BETWEEN_ACCOUNTS", 0.0, positive=False),
         log_dir=Path("logs"),

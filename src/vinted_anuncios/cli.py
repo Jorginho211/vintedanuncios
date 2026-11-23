@@ -19,16 +19,52 @@ app = typer.Typer(help="Publicador local de anuncios de Vinted (modo simulación
 
 PublishOption = Annotated[bool, typer.Option("--publish", help="Publica de verdad en Vinted")]
 DryRunOption = Annotated[bool, typer.Option("--dry-run", help="Fuerza la simulación (por defecto)")]
+SimulateSendOption = Annotated[
+    bool,
+    typer.Option(
+        "--simulate-send",
+        help="Rellena el formulario real sin pulsar Subir; borra las carpetas de anuncio",
+    ),
+]
 ScheduleOption = Annotated[
     bool, typer.Option("--schedule", help="Queda vivo y ejecuta los dos jobs programados")
 ]
 
 
-def _execute(action: Callable[..., None], *, publish: bool, dry_run: bool, schedule: bool) -> None:
+def _resolve_mode(*, publish: bool, dry_run: bool, simulate_send: bool) -> Mode:
+    flags = [
+        (name, value)
+        for name, value in (
+            ("--publish", publish),
+            ("--dry-run", dry_run),
+            ("--simulate-send", simulate_send),
+        )
+        if value
+    ]
+    if len(flags) > 1:
+        names = ", ".join(name for name, _ in flags)
+        raise ConfigError(f"Los modos son mutuamente exclusivos: {names}")
+    if dry_run:
+        return Mode.DRY_RUN
+    if simulate_send:
+        return Mode.SIMULATE_SEND
+    if publish:
+        return Mode.PUBLISH
+    return Mode.DRY_RUN
+
+
+def _execute(
+    action: Callable[..., None],
+    *,
+    publish: bool,
+    dry_run: bool,
+    simulate_send: bool,
+    schedule: bool,
+) -> None:
     try:
+        mode = _resolve_mode(publish=publish, dry_run=dry_run, simulate_send=simulate_send)
         settings = load_settings()
         logger = setup_logging(settings.log_dir)
-        mode = Mode.PUBLISH if publish and not dry_run else Mode.DRY_RUN
         if schedule:
             start(settings, mode, logger=logger)
         else:
@@ -43,34 +79,68 @@ def main(
     ctx: typer.Context,
     publish: PublishOption = False,
     dry_run: DryRunOption = False,
+    simulate_send: SimulateSendOption = False,
     schedule: ScheduleOption = False,
 ) -> None:
     """Recorre Data y aplica el barrido completo por defecto."""
     if ctx.invoked_subcommand is not None:
         return
-    _execute(run_sweep, publish=publish, dry_run=dry_run, schedule=schedule)
+    _execute(
+        run_sweep,
+        publish=publish,
+        dry_run=dry_run,
+        simulate_send=simulate_send,
+        schedule=schedule,
+    )
 
 
 @app.command("publish")
-def publish_command(publish: PublishOption = False, dry_run: DryRunOption = False) -> None:
-    """Escanea Data y publica anuncios pendientes; no responde favoritos."""
-    _execute(run_publish, publish=publish, dry_run=dry_run, schedule=False)
+def publish_command(
+    publish: PublishOption = False,
+    dry_run: DryRunOption = False,
+    simulate_send: SimulateSendOption = False,
+) -> None:
+    """Escanea Data y publica anuncios; no responde favoritos."""
+    _execute(
+        run_publish,
+        publish=publish,
+        dry_run=dry_run,
+        simulate_send=simulate_send,
+        schedule=False,
+    )
 
 
 @app.command("reply")
-def reply_command(publish: PublishOption = False, dry_run: DryRunOption = False) -> None:
+def reply_command(
+    publish: PublishOption = False,
+    dry_run: DryRunOption = False,
+    simulate_send: SimulateSendOption = False,
+) -> None:
     """Revisa favoritos de cada cuenta; no escanea ni publica anuncios."""
-    _execute(run_reply, publish=publish, dry_run=dry_run, schedule=False)
+    _execute(
+        run_reply,
+        publish=publish,
+        dry_run=dry_run,
+        simulate_send=simulate_send,
+        schedule=False,
+    )
 
 
 @app.command("sweep")
 def sweep_command(
     publish: PublishOption = False,
     dry_run: DryRunOption = False,
+    simulate_send: SimulateSendOption = False,
     schedule: ScheduleOption = False,
 ) -> None:
     """Publica anuncios y responde favoritos, igual que `vinted` sin subcomando."""
-    _execute(run_sweep, publish=publish, dry_run=dry_run, schedule=schedule)
+    _execute(
+        run_sweep,
+        publish=publish,
+        dry_run=dry_run,
+        simulate_send=simulate_send,
+        schedule=schedule,
+    )
 
 
 def _wait_for_enter() -> None:

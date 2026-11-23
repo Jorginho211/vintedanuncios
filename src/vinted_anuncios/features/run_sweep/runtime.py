@@ -15,7 +15,11 @@ from .noop_store import NoOpListingStore
 
 
 class SeleniumRuntime:
-    """Elige los adapters reales o de simulación según el modo."""
+    """Elige los adapters reales o de simulación según el modo.
+
+    Los drivers se abren solo cuando una cuenta tiene trabajo y se cierran en
+    cuanto termina esa cuenta: publicación y favoritos nunca comparten sesión.
+    """
 
     def __init__(
         self,
@@ -29,27 +33,42 @@ class SeleniumRuntime:
         self._logger = logger
         self._factory = SeleniumDriverFactory(settings)
         self._store: ListingStore = (
-            FilesystemListingStore() if mode is Mode.PUBLISH else NoOpListingStore()
+            FilesystemListingStore(settings.data_dir)
+            if mode in (Mode.PUBLISH, Mode.SIMULATE_SEND)
+            else NoOpListingStore()
         )
         self._drivers: dict[str, DriverPort] = {}
-        if mode is Mode.PUBLISH:
-            for account in accounts:
-                self._drivers[account] = self._factory.create(account)
+        self._accounts = accounts
 
     @property
     def store(self) -> ListingStore:
         return self._store
 
+    def _driver_for(self, account: str) -> DriverPort:
+        if account not in self._drivers:
+            self._drivers[account] = self._factory.create(account)
+        return self._drivers[account]
+
     def publisher_for(self, account: str) -> ListingPublisher:
         if self._mode is Mode.DRY_RUN:
             return DryRunListingPublisher()
-        return VintedListingPublisher(self._drivers[account], self._settings, self._logger)
+        return VintedListingPublisher(
+            self._driver_for(account),
+            self._settings,
+            self._logger,
+            submit=self._mode is Mode.PUBLISH,
+        )
 
     def replier_for(self, account: str) -> FavoriteReplier:
-        if self._mode is Mode.DRY_RUN:
+        if self._mode in (Mode.DRY_RUN, Mode.SIMULATE_SEND):
             return DryRunFavoriteReplier(self._logger)
-        return VintedFavoriteReplier(self._drivers[account], self._settings, self._logger)
+        return VintedFavoriteReplier(self._driver_for(account), self._settings, self._logger)
+
+    def release(self, account: str) -> None:
+        driver = self._drivers.pop(account, None)
+        if driver is not None:
+            self._factory.close(driver)
 
     def close(self) -> None:
-        for driver in self._drivers.values():
-            self._factory.close(driver)
+        for account in tuple(self._drivers):
+            self.release(account)

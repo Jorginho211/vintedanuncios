@@ -34,6 +34,7 @@ def _publish(
         PublishListings(listings=result.listings),
         publisher_for=runtime.publisher_for,
         store=runtime.store,
+        release=runtime.release,
         logger=logger,
         pause_seconds=settings.pause_between_listings,
     )
@@ -51,6 +52,7 @@ def _reply(
         replier_for=runtime.replier_for,
         logger=logger,
         pause_seconds=settings.pause_between_accounts,
+        release=runtime.release,
     )
 
 

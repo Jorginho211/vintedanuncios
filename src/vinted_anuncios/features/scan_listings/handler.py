@@ -1,15 +1,23 @@
 from __future__ import annotations
 
-from ...shared.config import ConfigError, title_for
+from ...shared.config import Config, ConfigError, title_for
 from ...shared.metadata import CaptionError
-from ...shared.models import Listing, ScanResult
+from ...shared.models import Caption, Listing, ScanResult
 from .query import (
     IMAGE_SUFFIXES,
+    UNSUPPORTED_IMAGE_SUFFIXES,
     ScanError,
     ScanListings,
     caption_from_images,
+    form_category_from,
     subdirectories,
 )
+
+
+def _full_title(config: Config, category: str, caption: Caption) -> str:
+    """Construye `<Marca> <Modelo> <Titulo>` con la variante de config.json."""
+    base = title_for(config, category, caption.brand)
+    return " ".join(part for part in (caption.brand, caption.model, base) if part).strip()
 
 
 def handle(query: ScanListings) -> ScanResult:
@@ -32,18 +40,29 @@ def handle(query: ScanListings) -> ScanResult:
                         )
                     )
                     if not images:
+                        unsupported = sorted(
+                            item.name
+                            for item in folder.iterdir()
+                            if item.is_file() and item.suffix.lower() in UNSUPPORTED_IMAGE_SUFFIXES
+                        )
+                        if unsupported:
+                            raise ScanError(
+                                "Vinted no acepta imágenes HEIC/HEIF; conviértelas a JPEG: "
+                                + ", ".join(unsupported)
+                            )
                         raise ScanError("la carpeta no contiene imágenes")
 
                     caption = caption_from_images(images)
-                    title = title_for(query.config, category_dir.name, caption.brand)
+                    config_category = category_dir.name
                     listings.append(
                         Listing(
                             account=account_dir.name,
-                            category=category_dir.name,
+                            config_category=config_category,
+                            form_category=form_category_from(config_category),
                             folder=folder,
                             images=images,
                             caption=caption,
-                            title=title,
+                            title=_full_title(query.config, config_category, caption),
                             description=query.config.description,
                         )
                     )

@@ -74,17 +74,38 @@ def test_subcommand_reply_solo_responde(tmp_path: Path, monkeypatch: pytest.Monk
     assert calls == [("reply", Mode.DRY_RUN)]
 
 
-def test_subcommand_sweep_respeta_la_precedencia_de_dry_run(
+def test_subcommand_sweep_acepta_simulate_send(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _patch_common(monkeypatch, tmp_path)
     calls: list[tuple[str, object]] = []
     monkeypatch.setattr(cli_module, "run_sweep", _recorder("sweep", calls))
 
-    result = CliRunner().invoke(cli_module.app, ["sweep", "--publish", "--dry-run"])
+    result = CliRunner().invoke(cli_module.app, ["sweep", "--simulate-send"])
 
     assert result.exit_code == 0, result.output
-    assert calls == [("sweep", Mode.DRY_RUN)]
+    assert calls == [("sweep", Mode.SIMULATE_SEND)]
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--publish", "--dry-run"],
+        ["--publish", "--simulate-send"],
+        ["--dry-run", "--simulate-send"],
+        ["--publish", "--dry-run", "--simulate-send"],
+    ],
+)
+def test_los_modos_son_mutuamente_exclusivos(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, flags: list[str]
+) -> None:
+    _patch_common(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli_module, "run_sweep", _forbidden)
+
+    result = CliRunner().invoke(cli_module.app, flags)
+
+    assert result.exit_code == 1
+    assert "mutuamente exclusivos" in result.output
 
 
 def test_schedule_arranca_el_scheduler_con_los_dos_jobs(

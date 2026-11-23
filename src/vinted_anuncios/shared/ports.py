@@ -64,6 +64,9 @@ class Runtime(Protocol):
 
     def replier_for(self, account: str) -> FavoriteReplier: ...
 
+    def release(self, account: str) -> None:
+        """Cierra la sesión de una cuenta cuando termina su último trabajo."""
+
     def close(self) -> None: ...
 
 
