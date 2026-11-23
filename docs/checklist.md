@@ -20,9 +20,19 @@ Antes de dar por bueno un cambio:
      la sesión sigue iniciada; pulsar Enter y confirmar que el driver se cierra.
    - Comprobar que un nombre de sesión inexistente termina con código 1.
 8. Si el cambio afecta a publicación:
-   - Probar con **una** cuenta y **un** anuncio.
-   - Usar `--publish` solo después de revisar el paso 6.
-   - Confirmar que la carpeta se borra solo tras el mensaje de éxito de Vinted.
+   - Probar con **una** cuenta y **un** anuncio cuyas fotos sean JPEG/PNG/GIF.
+     Con `.HEIC`, Vinted muestra un error crítico y el anuncio no se publica.
+   - Hacer una copia de `Data/` antes de `--simulate-send`: borra las carpetas de
+     los anuncios, pero conserva las de cuenta y categoría.
+   - `poetry run vinted --simulate-send`: ver en `http://127.0.0.1:7900` que se
+     rellenan todas las secciones; confirmar en los logs que **no** se pulsó
+     «Subir», que se volvió atrás descartando cambios y que solo desaparecieron
+     las carpetas hojas de los anuncios.
+   - Comprobar que `--dry-run`, `--simulate-send` y `--publish` son exclusivos:
+     combinar dos de ellos termina con código 1.
+   - Usar `--publish` solo después de revisar los pasos 6 y 8.
+   - Confirmar que la carpeta se borra solo tras el mensaje de éxito de Vinted;
+     si el resultado es ambiguo, no se borra y no hay reintentos.
 9. Si el cambio afecta a respuestas:
    - Confirmar que la plantilla existe en `Data/reply_added_favorites.txt`.
    - Verificar que solo se responde a conversaciones nuevas con la alerta acordada.
@@ -36,6 +46,7 @@ Antes de dar por bueno un cambio:
     terminando con código 0, mientras `vinted publish --dry-run` termina con código 1.
 12. Con `Data/` sin carpetas de cuenta, `vinted reply --dry-run` avisa y termina con
     código 0; sin plantilla de respuesta, termina con código 1.
-13. Revisar que `vinted --help` muestra `publish`, `reply` y `sweep`, y que
-    `REPLY_CRON` aparece documentada en `.env.example`.
+13. Revisar que `vinted --help` muestra `publish`, `reply`, `sweep` y
+    `--simulate-send`, y que `REPLY_CRON` y `SELENIUM_DATA_DIR` aparecen
+    documentadas en `.env.example`.
 14. `pip-audit` antes de actualizar dependencias.

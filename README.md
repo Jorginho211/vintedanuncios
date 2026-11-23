@@ -5,7 +5,8 @@ caption del nombre de cada archivo de foto y publica los anuncios en Vinted. Des
 una vez al primer mensaje del comprador cuando recibe una alerta de favorito.
 
 **Predeterminado seguro:** sin `--publish` el programa solo valida y muestra lo
-que haría. Los archivos de diseño están en `CONSTITUTION.md` y `docs/`.
+que haría. Los tres modos (`--dry-run`, `--simulate-send`, `--publish`) son
+mutuamente exclusivos. Los archivos de diseño están en `CONSTITUTION.md` y `docs/`.
 
 ## Puesta en marcha
 
@@ -34,11 +35,29 @@ si la plantilla de respuesta está vacía.
 respuesta: no lee `config.json` ni `description.txt`. Si no hay carpetas de cuenta,
 avisa y termina con código 0.
 
-La simulación no necesita Docker:
+Las fotos deben estar en **JPEG, PNG o GIF**. Vinted rechaza `.HEIC`/`.HEIF`
+con un diálogo de error crítico; convierte las fotos antes de ponerlas en la
+carpeta del anuncio. El título se construye como `<Marca> <Modelo> <Titulo>`,
+donde `Titulo` sale de `config.json` (categoría completa y variante de marca).
+
+La simulación sin navegador no necesita Docker:
 
 ```bash
 poetry run vinted --dry-run
 ```
+
+Para recorrer el formulario real **sin pulsar «Subir»**, levanta Selenium y usa:
+
+```bash
+docker compose up -d
+poetry run vinted --simulate-send
+```
+
+Este modo rellena fotos, título, descripción, precio, categoría, marca, color,
+estado y envío; vuelve atrás descartando los cambios y borra únicamente las
+carpetas `Data/<Cuenta>/<Categoría>/<Anuncio>/`. Conserva las carpetas de cuenta
+y de categoría. Las respuestas a favoritos se simulan: no se escribe en Vinted.
+Haz una copia de `Data/` si quieres repetir la prueba.
 
 Para publicar de verdad (solo cuando tú lo decidas), levanta Selenium y ejecuta:
 
@@ -65,6 +84,9 @@ poetry run vinted reply --dry-run
 
 # Barrido completo bajo demanda (igual que `vinted --dry-run`)
 poetry run vinted sweep --dry-run
+
+# Barrido real sin pulsar Subir (borra las carpetas de anuncio)
+poetry run vinted sweep --simulate-send
 ```
 
 La frecuencia del job de favoritos se ajusta con `REPLY_CRON` (por defecto
@@ -94,14 +116,21 @@ documenta con sus valores por defecto:
 
 | Variable | Default | Uso |
 |---|---|---|
-| `DATA_DIR` | `Data` | Árbol de anuncios |
+| `DATA_DIR` | `Data` | Árbol de anuncios en el host |
+| `SELENIUM_DATA_DIR` | `/Data` | Ruta de `Data/` dentro del contenedor |
 | `PROFILES_DIR` | `sessions` | Perfiles de Firefox por cuenta |
 | `SELENIUM_URL` | `http://127.0.0.1:4444` | Grid de Selenium |
 | `SELENIUM_WAIT_SECONDS` | `15` | Espera máxima del navegador |
+| `SELENIUM_ACTION_DELAY_MIN` | `0.5` | Pausa mínima entre acciones de Selenium |
+| `SELENIUM_ACTION_DELAY_MAX` | `1.5` | Pausa máxima entre acciones de Selenium |
 | `PAUSE_BETWEEN_LISTINGS` | `0` | Pausa entre anuncios |
 | `PAUSE_BETWEEN_ACCOUNTS` | `0` | Pausa entre cuentas |
 | `TIMEZONE` | `Europe/Madrid` | Zona horaria de los jobs (`TZ` es ignorada) |
 | `REPLY_CRON` | `*/15 * * * *` | Frecuencia de la revisión de favoritos |
+
+Las pausas `SELENIUM_ACTION_DELAY_*` se aplican a todo el flujo con navegador
+(formulario y favoritos) para dar tiempo al DOM a actualizarse; `--dry-run` no
+usa Selenium y por eso no se retrasa. Pon ambos valores a `0` para desactivarlas.
 
 ## Estado
 

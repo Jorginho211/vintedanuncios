@@ -8,14 +8,14 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 
 ## 2. Principios rectores
 
-1. **Simulación por defecto.** Ninguna acción escribe en Vinted salvo que se pase explícitamente `--publish`.
-2. **El sistema de archivos es la fuente de verdad.** Una carpeta de anuncio existe = anuncio pendiente. Se borra solo después de que Vinted confirme la publicación.
+1. **Simulación por defecto.** Ninguna acción escribe en Vinted salvo que se pase explícitamente `--publish`. Los modos `--dry-run`, `--simulate-send` y `--publish` son mutuamente exclusivos; `--simulate-send` recorre el formulario real sin pulsar «Subir» y simula las respuestas a favoritos.
+2. **El sistema de archivos es la fuente de verdad.** Una carpeta de anuncio existe = anuncio pendiente. Se borra tras la publicación confirmada o al terminar `--simulate-send`, siempre con guarda de ruta: solo `Data/<Cuenta>/<Categoría>/<Anuncio>/`.
 3. **Separación de capas.** `shared/` contiene datos y contratos; los handlers de
    `features/` contienen los casos de uso; Selenium y el filesystem viven aislados
    en `adapters/`. Los puertos de `shared/ports.py` definen la frontera.
 4. **Sin estado local para las respuestas.** Vinted determina qué conversación fue respondida; solo se escriben logs de auditoría (sin datos personales).
 5. **Seguridad por defecto.** Perfiles de navegador fuera de Git, Selenium escuchando solo en `127.0.0.1`, escaneo de secretos, logs sin mensajes de compradores.
-6. **Sin evasión de controles de la plataforma.** El riesgo de las condiciones de servicio de Vinted fue revisado y aceptado por el propietario. No se implementan mecanismos anti-CAPTCHA ni de ocultación de automatización.
+6. **Sin evasión de controles de la plataforma.** El riesgo de las condiciones de servicio de Vinted fue revisado y aceptado por el propietario. No se implementan mecanismos anti-CAPTCHA ni de ocultación de automatización. Las pausas configurables de `ActionPacer` existen solo para dar tiempo al DOM y evitar carreras, no para simular comportamiento humano.
 7. **Toda decisión importante se consulta.** Cada funcionalidad nueva se registra en `plans/` antes de implementarse.
 
 ## 3. Stack tecnológico
@@ -41,8 +41,10 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 - `;` es siempre separador; no se escapa dentro de los valores.
 - Se permite un `;` final y se interpreta como "sin modelo".
 - `medidas` en centímetros con formato `50x60`.
-- El nombre del archivo es la caption sin la extensión: `24.95;50x60;Nike;35A.HEIC`.
-- Ejemplos: `25;40x30.HEIC`, `25;40x30;Levis.HEIC`, `25;40x30;Levis;Air Max 90.HEIC`.
+- El nombre del archivo es la caption sin la extensión: `24.95;50x60;Nike;35A.JPG`.
+- Ejemplos: `25;40x30.JPG`, `25;40x30;Levis.JPG`, `25;40x30;Levis;Air Max 90.JPG`.
+- Vinted solo acepta JPEG/PNG/GIF: las fotos `.HEIC`/`.HEIF` se rechazan con un
+  diálogo de error crítico y no se convierten automáticamente.
 - No se contempla el caso "modelo sin marca".
 
 ### Configuración
@@ -55,7 +57,8 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
   cuenta y la plantilla: no lee `config.json` ni `description.txt`; sin cuentas
   avisa y termina con código 0.
 - `Data/config.json`: una clave por categoría, con `default` y variantes opcionales por marca (`levis`).
-- Selección del título: nombre de carpeta de categoría (coincidencia exacta; los puntos son literales) + `marca.lower()`. Si no hay variante, se usa `default` sin aviso.
+- Selección del título: `config.json` usa el nombre de carpeta de categoría completo (puntos literales) + `marca.lower()`; si no hay variante, `default`. El título enviado es `<Marca> <Modelo> <Titulo>`. La marca también se elige en el campo «Marca»; el modelo no existe como campo en Vinted y solo va en el título. Las medidas no se envían.
+- El formulario usa la categoría antes del primer punto (`Cortavientos.General` → `Cortavientos`).
 - `Data/description.txt`: descripción común a todas las categorías; se usa tal cual. Si aparece el placeholder `{{TALLA}}`, se deja **literal** y se resolverá en una iteración futura.
 - `Data/reply_added_favorites.txt`: plantilla global de respuesta. Si falta o está
   vacía, la ejecución termina con error y código 1, también en el comando `reply`.
@@ -66,7 +69,7 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 ### Árbol
 
 ```
-Data/<Cuenta>/<Categoría>/<Anuncio>/  (solo fotos)
+Data/<Cuenta>/<Categoría>/<Anuncio>/  (solo fotos JPEG/PNG/GIF)
 sessions/<Cuenta>/                    (perfil Firefox; contenido ignorado por Git)
 ```
 
@@ -94,7 +97,7 @@ sessions/<Cuenta>/                    (perfil Firefox; contenido ignorado por Gi
 - Resolver `{{TALLA}}` en una iteración futura (plan 010).
 - Confirmar la ubicación exacta de la alerta *"ha marcado como favorito tu artículo"*.
 - Completar el spike de persistencia del perfil Firefox (plan 002).
-- Definir el destino del campo `modelo` en el formulario de Vinted.
+- Validar el formulario completo con `--simulate-send` antes del primer `--publish`.
 
 ## 8. Proceso de cambio
 

@@ -5,8 +5,8 @@
 La publicación corre una vez al día y la revisión de favoritos cada 15 minutos
 (configurable con `REPLY_CRON`); ambas acciones también se lanzan bajo demanda.
 `cli` y `scheduler` leen el entorno una sola vez, construyen `Settings` y `Mode`
-y los inyectan. Por defecto trabaja en simulación; solo con `--publish` interactúa
-con Vinted.
+y los inyectan. Por defecto trabaja en simulación; solo con `--publish` escribe
+en Vinted. `--simulate-send` recorre el formulario real sin pulsar «Subir».
 
 ```
 cli / scheduler  ->  Settings + Mode
@@ -53,12 +53,18 @@ cli / scheduler  ->  Settings + Mode
 ## Contrato de datos
 
 Caption: `precio;medidas(ancho x largo);marca(opcional);modelo(opcional)`,
-contenida en el **nombre del archivo**: `24.95;50x60;Nike;35A.HEIC`.
+contenida en el **nombre del archivo**: `24.95;50x60;Nike;35A.JPG`.
 Medidas en cm (`50x60`). `;` siempre separa; se tolera un `;` final. No se valida
-el caso "modelo sin marca" porque se acordó que no puede ocurrir.
+el caso "modelo sin marca" porque se acordó que no puede ocurrir. Solo se
+aceptan fotos JPEG/PNG/GIF; los `.HEIC`/`.HEIF` se rechazan en el escaneo con un
+mensaje que pide convertirlos a JPEG (Vinted los rechaza con un diálogo crítico).
 
-Título: categoría (nombre de carpeta exacto, los puntos son literales) +
-`marca.lower()`; si la clave no existe, `default`.
+`Listing` guarda `config_category` (nombre completo de la carpeta, para
+`config.json`) y `form_category` (antes del primer `.`, para el formulario).
+
+Título: `<Marca> <Modelo> <Titulo>`; `Titulo` se toma de `config.json` con la
+categoría completa y `marca.lower()` (o `default`). La marca se usa también en
+el campo «Marca»; Vinted no tiene campo de modelo y las medidas no se envían.
 
 Descripción: contenido literal de `Data/description.txt`. Si el texto incluye
 `{{TALLA}}`, se deja tal cual hasta una iteración futura.
@@ -77,9 +83,12 @@ con código 0.
 | Variable | Default |
 |---|---|
 | `DATA_DIR` | `Data` |
+| `SELENIUM_DATA_DIR` | `/Data` |
 | `PROFILES_DIR` | `sessions` |
 | `SELENIUM_URL` | `http://127.0.0.1:4444` |
 | `SELENIUM_WAIT_SECONDS` | `15` |
+| `SELENIUM_ACTION_DELAY_MIN` | `0.5` |
+| `SELENIUM_ACTION_DELAY_MAX` | `1.5` |
 | `PAUSE_BETWEEN_LISTINGS` | `0` |
 | `PAUSE_BETWEEN_ACCOUNTS` | `0` |
 | `TIMEZONE` | `Europe/Madrid` |
@@ -88,6 +97,16 @@ con código 0.
 `load_settings(environ=None)` centraliza defaults y validación. `TZ` es ignorada
 por la aplicación y los nombres antiguos de las pausas no se reconocen: el
 proyecto aún no está en producción y no se mantiene compatibilidad.
+
+`ActionPacer` (`shared/pause.py`) aplica un retardo aleatorio entre
+`SELENIUM_ACTION_DELAY_MIN` y `MAX` después de cada acción del publicador y del
+replier. Su único fin es dar tiempo al DOM y evitar carreras; no hay lógica de
+evasión de anti-bot. Con ambos valores a `0` no se duerme.
+
+Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
+`adapters/vinted_wait.py` (`click_css`, `click_xpath`, `fill` y
+`send_keys_css`) localizan el elemento de nuevo si aparece
+`StaleElementReferenceException`.
 
 ## Decisiones
 
@@ -99,15 +118,27 @@ proyecto aún no está en producción y no se mantiene compatibilidad.
   `run_sweep` expone tres orquestadores: `run_publish`, `run_reply` y el barrido
   completo, que comparten el mismo runtime.
 - **Simulación por composición:** en `Mode.DRY_RUN` el runtime devuelve publishers
-  y store de no-op y no crea ningún driver. Los handlers no reciben flags
-  `dry_run` ni drivers nulos.
+  y store de no-op y no crea ningún driver. En `Mode.SIMULATE_SEND` usa el
+  publisher real con `submit=False`, store real y replier simulado. Los handlers
+  no reciben flags `dry_run` ni drivers nulos.
+- **Sesión perezosa:** el driver se crea solo para cuentas con trabajo. Tras la
+  última publicación de la cuenta se cierra; la fase de favoritos abre su propia
+  sesión. `Runtime.release(account)` lo garantiza con `try/finally`.
+- **Rutas de fotos:** `DATA_DIR` es la ruta del host y `SELENIUM_DATA_DIR` la del
+  contenedor. El publisher traduce cada foto a `/Data/<Cuenta>/...` antes de
+  `send_keys`. `docker-compose.yaml` monta `./Data:/Data:ro` y fija
+  `SE_NODE_SESSION_TIMEOUT=1800`.
 - **Verificación manual de sesión:** `check-session` abre el home con el perfil
   indicado y deja que el propietario compruebe el login por VNC; no hay detección
   automática ni escritura en Vinted.
 - Procesamiento **secuencial** de cuentas (una sola sesión activa por vez).
 - Pausas configurables por estabilidad, no para evadir controles.
 - Un error en un anuncio se registra y no aborta el barrido.
-- Borrado real de la carpeta **solo** tras confirmación de Vinted y con `--publish`.
+- Borrado de la carpeta hoja del anuncio tras confirmación de Vinted (`--publish`)
+  o al terminar `--simulate-send`. `FilesystemListingStore.delete()` exige que la
+  ruta esté dentro de `DATA_DIR` y tenga exactamente tres niveles: nunca borra
+  carpetas de cuenta ni de categoría. Un resultado ambiguo al publicar es error:
+  sin borrado y sin reintentos.
 - Sin base de datos local: el estado de las conversaciones lo determina Vinted.
 - **Dos jobs, un perfil a la vez:** publicación diaria y favoritos comparten un
   `Lock`; cada job tiene `max_instances=1` y `coalesce=True`. Un cron inválido en
@@ -116,11 +147,32 @@ proyecto aún no está en producción y no se mantiene compatibilidad.
   `vinted` sin subcomando) mantiene el barrido completo y `--schedule` arranca los
   dos jobs programados.
 
+## Selectores del formulario real
+
+Validados con volcados de HTML de CuentaA (`/tmp/opencode/vinted_*.html`, plan 016):
+
+| Paso | Selector |
+|---|---|
+| «Vender ahora» | `a[href="/items/new"]` |
+| Fotos | `[data-testid="add-photos-input"]` (varios archivos separados por salto de línea) |
+| Título / descripción / precio | `#title`, `#description`, `#price` |
+| Categoría | `[data-testid="catalog-select-dropdown-input"]` + `#catalog-search-input`, primera opción |
+| Marca | Si Vinted ya sugiere la marca se conserva; si no, `[data-testid="brand-select-dropdown-input"]` + `#brand-search-input`, primera opción |
+| Color | `[data-testid="color-select-dropdown-input"]`; primera sugerencia o primer color de la lista |
+| Estado | `#condition-2` («Muy bueno») |
+| Envío | `[data-testid="1-package-size--cell"]` («Pequeño»); el radio `#package_type_selector_1` está oculto |
+| Subir | `[data-testid="upload-form-save-button"]` |
+| Error de subida | `[data-testid="item-upload-critical-error-dialog"]` |
+
+Talla, material y modelo no se cubren: este último no existe en el DOM de
+Vinted para las categorías usadas; se concatena al título.
+
 ## Riesgos conocidos / pendientes
 
-- Los selectores de `adapters/selectors.py` son provisionales: validar contra la web real.
-- La ubicación de la alerta de favorito está pendiente de confirmar.
+- Los selectores de favoritos siguen siendo provisionales: validar la ubicación
+  de la alerta «ha marcado como favorito tu artículo» con `docs/checklist.md`.
 - La caption se lee del nombre del archivo con `pathlib.stem`; no se usan metadatos ni librerías externas.
 - El perfil de Firefox en `sessions/<Cuenta>/` debe verificarse entre ejecuciones
   con `vinted check-session <Cuenta>` (plan 014).
-- Destino del campo `modelo` en el formulario de Vinted: pendiente.
+- Si Vinted cambia el DOM, `--simulate-send` es la forma segura de detectarlo
+  antes de publicar.
