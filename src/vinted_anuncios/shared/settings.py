@@ -65,8 +65,8 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     if not reply_cron:
         raise SettingsError("REPLY_CRON no puede estar vacía")
 
-    action_delay_min = _number(env, "SELENIUM_ACTION_DELAY_MIN", 0.5, positive=False)
-    action_delay_max = _number(env, "SELENIUM_ACTION_DELAY_MAX", 1.5, positive=False)
+    action_delay_min = _number(env, "SELENIUM_ACTION_DELAY_MIN", 1.0, positive=False)
+    action_delay_max = _number(env, "SELENIUM_ACTION_DELAY_MAX", 2.0, positive=False)
     if action_delay_min > action_delay_max:
         raise SettingsError("SELENIUM_ACTION_DELAY_MIN no puede superar SELENIUM_ACTION_DELAY_MAX")
 
