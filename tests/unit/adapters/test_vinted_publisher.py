@@ -41,6 +41,43 @@ def test_cambia_la_marca_si_la_sugerencia_no_coincide(monkeypatch: pytest.Monkey
     assert calls[0]["value"] == "Levis"
 
 
+def test_elige_la_primera_opcion_de_talla_presente_en_el_dom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    publisher = VintedListingPublisher(
+        MagicMock(), load_settings({}), logging.getLogger("test"), submit=False
+    )
+    wrong = MagicMock()
+    wrong.text = "W30"
+    right = MagicMock()
+    right.text = "ES 42"
+    monkeypatch.setattr(vinted_publisher, "wait_for_all", lambda *_a, **_k: [wrong, right])
+    monkeypatch.setattr(vinted_publisher, "click_css", lambda *_a, **_k: None)
+    monkeypatch.setattr(publisher, "_pace", lambda: None)
+    clicked: list[object] = []
+    monkeypatch.setattr(
+        vinted_publisher, "click_js", lambda _driver, element: clicked.append(element)
+    )
+
+    publisher._choose_size("W32 | ES 42")
+
+    assert clicked == [right]
+
+
+def test_falla_si_vinted_no_ofrece_la_talla(monkeypatch: pytest.MonkeyPatch) -> None:
+    publisher = VintedListingPublisher(
+        MagicMock(), load_settings({}), logging.getLogger("test"), submit=False
+    )
+    option = MagicMock()
+    option.text = "W30"
+    monkeypatch.setattr(vinted_publisher, "wait_for_all", lambda *_a, **_k: [option])
+    monkeypatch.setattr(vinted_publisher, "click_css", lambda *_a, **_k: None)
+    monkeypatch.setattr(publisher, "_pace", lambda: None)
+
+    with pytest.raises(RuntimeError, match="no ofreció la talla"):
+        publisher._choose_size("W32 | ES 42")
+
+
 def test_configura_el_pacer_con_los_valores_de_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, float] = {}
 

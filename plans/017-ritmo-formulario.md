@@ -73,3 +73,6 @@ reproducible mediante configuración.
   sesiones abiertas en el grid.
 - `--dry-run` posterior no encuentra anuncios pendientes.
 - No se ejecutó `--publish`.
+- Nota: el commit `ce6a68b` cambió los defaults a 1,0–2,0 s. README,
+  `.env.example`, `docs/architecture.md` y `tests/unit/test_settings.py` se
+  actualizaron después para reflejar la decisión vigente.

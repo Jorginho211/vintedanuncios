@@ -16,8 +16,8 @@ def test_load_settings_usa_los_defaults() -> None:
     assert str(settings.timezone) == "Europe/Madrid"
     assert settings.reply_cron == "*/15 * * * *"
     assert settings.wait_seconds == 15.0
-    assert settings.action_delay_min == 0.5
-    assert settings.action_delay_max == 1.5
+    assert settings.action_delay_min == 1.0
+    assert settings.action_delay_max == 2.0
     assert settings.pause_between_listings == 0.0
     assert settings.pause_between_accounts == 0.0
     assert settings.log_dir == Path("logs")

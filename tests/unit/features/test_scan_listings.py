@@ -15,11 +15,19 @@ def _prepare(tmp_path: Path, *, image_name: str | None = "25;40x30;Levis;501.JPG
     folder.mkdir(parents=True)
     (data_dir / "config.json").write_text(
         json.dumps(
-            {"Cortavientos.General": {"default": "Título por defecto", "levis": "Título Levis"}}
+            {
+                "Cortavientos.General": {
+                    "size": "top",
+                    "default": "Título por defecto",
+                    "levis": "Título Levis",
+                }
+            }
         ),
         encoding="utf-8",
     )
-    (data_dir / "description.txt").write_text("Descripción común", encoding="utf-8")
+    (data_dir / "description.txt").write_text(
+        "Descripción común, talla {{TALLA}}", encoding="utf-8"
+    )
     if image_name is not None:
         (folder / image_name).write_bytes(b"foto")
     return folder
@@ -40,7 +48,8 @@ def test_scan_separa_categoria_de_config_y_de_formulario(tmp_path: Path) -> None
     assert listing.config_category == "Cortavientos.General"
     assert listing.form_category == "Cortavientos"
     assert listing.title == "Levis 501 Título Levis"
-    assert listing.description == "Descripción común"
+    assert listing.size == "S"
+    assert listing.description == "Descripción común, talla S"
     assert listing.caption.model == "501"
     assert listing.caption.brand == "Levis"
     assert listing.caption.price == 25.0
@@ -72,3 +81,39 @@ def test_scan_ignora_config_y_description(tmp_path: Path) -> None:
     _prepare(tmp_path, image_name=None)
     result = _scan(tmp_path)
     assert any("imágenes" in error for error in result.errors)
+
+
+def test_scan_calcula_talla_de_pantalon_y_resuelve_el_placeholder(tmp_path: Path) -> None:
+    data_dir = tmp_path / "Data"
+    folder = data_dir / "Cuenta A" / "Pantalones Anchos" / "Anuncio"
+    folder.mkdir(parents=True)
+    (data_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "Pantalones Anchos": {
+                    "size": "pants",
+                    "default": "Jeans baggy",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (data_dir / "description.txt").write_text("Talla: {{TALLA}}", encoding="utf-8")
+    (folder / "25;40x30.JPG").write_bytes(b"foto")
+
+    result = _scan(tmp_path)
+
+    assert result.errors == ()
+    assert len(result.listings) == 1
+    assert result.listings[0].size == "W32 | ES 42"
+    assert result.listings[0].description == "Talla: W32 | ES 42"
+
+
+def test_scan_registra_error_si_la_medida_esta_fuera_de_tabla(tmp_path: Path) -> None:
+    folder = _prepare(tmp_path, image_name="25;80x30.JPG")
+    result = _scan(tmp_path)
+
+    assert result.listings == ()
+    assert len(result.errors) == 1
+    assert str(folder) in result.errors[0]
+    assert "fuera de la tabla" in result.errors[0]

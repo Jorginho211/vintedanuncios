@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+
+from .sizes import SIZE_KINDS, SizeKind
 
 
 class ConfigError(ValueError):
@@ -13,8 +15,8 @@ class ConfigError(ValueError):
 # Archivo obligatorio -> plantilla que se debe copiar para crearlo.
 REQUIRED_FILES = {
     "config.json": "config.json.example",
-    "description.txt": "description.example",
-    "reply_added_favorites.txt": "reply_added_favorites.example",
+    "description.txt": "description.txt.example",
+    "reply_added_favorites.txt": "reply_added_favorites.txt.example",
 }
 
 
@@ -60,6 +62,8 @@ def load_config(data_dir: Path) -> Config:
             if not isinstance(key, str) or not isinstance(value, str):
                 raise ConfigError(f"Valor inválido en la categoría {name!r}: {key!r}")
             cleaned[key] = value
+        if cleaned.get("size") not in SIZE_KINDS:
+            raise ConfigError(f"Categoría {name!r} sin clave 'size' válida (pants o top)")
         categories[name] = cleaned
 
     try:
@@ -76,7 +80,17 @@ def title_for(config: Config, category: str, brand: str | None) -> str:
     if values is None:
         raise ConfigError(f"Categoría no configurada: {category!r}")
     key = brand.lower() if brand else "default"
+    if key == "size":
+        key = "default"
     return values.get(key, values.get("default", ""))
+
+
+def size_kind_for(config: Config, category: str) -> SizeKind:
+    """Devuelve la tabla de tallas asignada a una categoría configurada."""
+    values = config.categories.get(category)
+    if values is None:
+        raise ConfigError(f"Categoría no configurada: {category!r}")
+    return cast(SizeKind, values["size"])
 
 
 def load_reply_template(data_dir: Path) -> str:

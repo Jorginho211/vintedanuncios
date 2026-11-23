@@ -36,6 +36,7 @@ class Listing:
     caption: Caption
     title: str
     description: str
+    size: str
 
 
 @dataclass(frozen=True, slots=True)

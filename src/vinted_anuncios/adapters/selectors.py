@@ -29,6 +29,9 @@ SELECTOR_CATEGORY_OPTION = (
 SELECTOR_BRAND = '[data-testid="brand-select-dropdown-input"]'
 SELECTOR_BRAND_SEARCH = "#brand-search-input"
 SELECTOR_BRAND_OPTION = '[data-testid="brand-select-dropdown-content"] [role="radio"][id^="brand-"]'
+# Validados contra el DOM real del formulario de CuentaA (plan 018).
+SELECTOR_SIZE = '[data-testid="category-size-single-grid-input"]'
+SELECTOR_SIZE_OPTION = '[data-testid="category-size-single-grid-content"] [role="checkbox"]'
 SELECTOR_COLOR = '[data-testid="color-select-dropdown-input"]'
 SELECTOR_CONDITION = '[data-testid="category-condition-single-list-input"]'
 SELECTOR_CONDITION_GOOD = "#condition-2"

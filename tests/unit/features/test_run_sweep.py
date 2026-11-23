@@ -132,7 +132,8 @@ def _prepare(tmp_path: Path) -> Path:
     folder = data_dir / "Cuenta" / "Pantalones Anchos" / "Anuncio"
     folder.mkdir(parents=True)
     (data_dir / "config.json").write_text(
-        json.dumps({"Pantalones Anchos": {"default": "Título"}}), encoding="utf-8"
+        json.dumps({"Pantalones Anchos": {"size": "pants", "default": "Título"}}),
+        encoding="utf-8",
     )
     (data_dir / "description.txt").write_text("Descripción", encoding="utf-8")
     (data_dir / "reply_added_favorites.txt").write_text("Gracias", encoding="utf-8")
@@ -417,6 +418,7 @@ def test_simulate_send_configura_el_publicador_sin_submit(
             caption=Caption(1.0, 1.0, 1.0, None, None),
             title="Titulo",
             description="Descripcion",
+            size="W32 | ES 42",
         )
     )
 

@@ -9,6 +9,7 @@ from vinted_anuncios.shared.config import (
     ConfigError,
     load_config,
     load_reply_template,
+    size_kind_for,
     title_for,
     validate_data_dir,
     validate_reply_data_dir,
@@ -34,6 +35,33 @@ def test_title_for_usa_variante_de_marca() -> None:
         == config.categories["Pantalones Anchos"]["default"]
     )
     assert title_for(config, "Cortavientos.General", None).startswith("Track Jacket")
+
+
+def test_size_kind_for_lee_la_clave_reservada() -> None:
+    config = load_config(DATA_DIR)
+    assert size_kind_for(config, "Pantalones Anchos") == "pants"
+    assert size_kind_for(config, "Cortavientos.General") == "top"
+
+
+def test_load_config_exige_clave_size_valida(tmp_path: Path) -> None:
+    (tmp_path / "description.txt").write_text("texto", encoding="utf-8")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"Pantalones": {"default": "Título"}}), encoding="utf-8"
+    )
+    with pytest.raises(ConfigError, match="'size'"):
+        load_config(tmp_path)
+
+    (tmp_path / "config.json").write_text(
+        json.dumps({"Pantalones": {"size": "shorts", "default": "Título"}}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError, match="'size'"):
+        load_config(tmp_path)
+
+
+def test_title_for_ignora_la_clave_size() -> None:
+    config = load_config(DATA_DIR)
+    assert title_for(config, "Pantalones Anchos", "Size").startswith("Y2K")
 
 
 def test_title_for_categoria_desconocida() -> None:
@@ -94,7 +122,7 @@ def test_validate_reply_data_dir_sin_directorio(tmp_path: Path) -> None:
 def test_archivos_ejemplo_existen() -> None:
     for name in (
         "config.json.example",
-        "description.example",
-        "reply_added_favorites.example",
+        "description.txt.example",
+        "reply_added_favorites.txt.example",
     ):
         assert (DATA_DIR / name).is_file()

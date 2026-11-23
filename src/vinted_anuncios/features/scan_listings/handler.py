@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from ...shared.config import Config, ConfigError, title_for
+from ...shared.config import Config, ConfigError, size_kind_for, title_for
 from ...shared.metadata import CaptionError
 from ...shared.models import Caption, Listing, ScanResult
+from ...shared.sizes import SizeError, size_for
 from .query import (
     IMAGE_SUFFIXES,
     UNSUPPORTED_IMAGE_SUFFIXES,
@@ -54,6 +55,7 @@ def handle(query: ScanListings) -> ScanResult:
 
                     caption = caption_from_images(images)
                     config_category = category_dir.name
+                    size = size_for(size_kind_for(query.config, config_category), caption.width_cm)
                     listings.append(
                         Listing(
                             account=account_dir.name,
@@ -63,10 +65,11 @@ def handle(query: ScanListings) -> ScanResult:
                             images=images,
                             caption=caption,
                             title=_full_title(query.config, config_category, caption),
-                            description=query.config.description,
+                            description=query.config.description.replace("{{TALLA}}", size),
+                            size=size,
                         )
                     )
-                except (ConfigError, CaptionError, ScanError, OSError) as exc:
+                except (ConfigError, CaptionError, ScanError, SizeError, OSError) as exc:
                     errors.append(f"{folder}: {exc}")
 
     return ScanResult(listings=tuple(listings), errors=tuple(errors))

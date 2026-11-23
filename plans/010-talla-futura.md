@@ -1,6 +1,6 @@
 # Plan 010 — Resolver {{TALLA}} (iteración futura)
 
-**Estado:** pendiente, no planificado para esta entrega.
+**Estado:** resuelto por el plan 018 (talla calculada desde medidas y categoría).
 
 **Objetivo:** si la descripción usa `{{TALLA}}`, sustituirlo por el valor real.
 

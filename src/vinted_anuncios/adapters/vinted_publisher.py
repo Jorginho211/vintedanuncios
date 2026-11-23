@@ -18,10 +18,12 @@ from ..shared.models import Listing, PublishResult
 from ..shared.pause import ActionPacer
 from ..shared.ports import DriverPort
 from ..shared.settings import Settings
+from ..shared.sizes import matches_vinted_size
 from . import selectors
 from .vinted_wait import (
     accept_alert,
     click_css,
+    click_js,
     click_xpath,
     fill,
     go_back,
@@ -66,6 +68,7 @@ class VintedListingPublisher:
             self._choose_category(listing.form_category)
             if listing.caption.brand:
                 self._ensure_brand(listing.caption.brand)
+            self._choose_size(listing.size)
             self._choose_color()
             self._choose_condition()
             self._choose_shipping()
@@ -189,6 +192,25 @@ class VintedListingPublisher:
             raise RuntimeError(f"Vinted no ofreció opciones para {value!r}")
         click_css(driver, option, timeout, clickable=False)
         self._pace()
+
+    def _choose_size(self, size: str) -> None:
+        self._step(f"talla {size!r}")
+        driver = self._driver
+        timeout = self._settings.wait_seconds
+        click_css(driver, selectors.SELECTOR_SIZE, timeout)
+        self._pace()
+
+        def attempt() -> None:
+            options = wait_for_all(driver, selectors.SELECTOR_SIZE_OPTION, timeout)
+            for option in options:
+                if matches_vinted_size(size, option.text):
+                    self._logger.debug("Talla %s: opción elegida %s", size, option.text)
+                    click_js(driver, option)
+                    self._pace()
+                    return
+            raise RuntimeError(f"Vinted no ofreció la talla {size!r}")
+
+        retry_on_stale(attempt)
 
     def _choose_color(self) -> None:
         self._step("color")

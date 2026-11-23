@@ -20,6 +20,9 @@ del comprador. Python + Poetry + Selenium + APScheduler + Typer, sin librerías 
 - Código en inglés; documentación y logs en español.
 - `scanner`, `metadata`, `config` y `models` NO importan Selenium.
 - Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`...).
+- No commitear con `ruff`, `mypy` o `pytest` fallidos: si un test falla, corregir
+  el código o adaptar el test y la documentación a la decisión vigente antes de
+  commitear; la suite debe quedar siempre en verde.
 - Toda funcionalidad nueva: crear un plan en `plans/` antes de implementar.
 - Decisiones estructurales: preguntar al usuario, no decidir en solitario.
 - No escribir secretos en el repositorio.

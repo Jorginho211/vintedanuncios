@@ -5,6 +5,9 @@ Antes de dar por bueno un cambio:
 1. `poetry run ruff check .`
 2. `poetry run mypy src tests`
 3. `poetry run pytest`
+   - No se commitea si falla alguno de los tres: primero se corrige el código o
+     se adaptan el test y la documentación a la decisión vigente. La suite queda
+     siempre en verde.
 4. Comprobar que los tres archivos reales existen en `Data/` (copiados de los
    `*.example`). Renombrar uno temporalmente y verificar que `vinted --dry-run`
    termina con código 1 y un error que indica qué copiar.
@@ -12,7 +15,9 @@ Antes de dar por bueno un cambio:
 6. `poetry run vinted --dry-run`
    - Revisar que se listan las cuentas y categorías esperadas.
    - Revisar que los títulos salen de la categoría correcta (incluida la variante `levis`).
-   - Revisar que la descripción contiene el texto de `description.txt`.
+   - Revisar que la descripción contiene el texto de `description.txt`, con
+     `{{TALLA}}` sustituido por la talla calculada (`W32 | ES 42` o, por
+     ejemplo, `M`), y que una medida fuera de tabla aparece en `errors`.
    - Confirmar que no se ha borrado ninguna carpeta ni publicado nada.
 7. Si el cambio afecta a Selenium o a los perfiles:
    - `poetry run vinted check-session CuentaA` con `docker compose up -d`.
@@ -25,7 +30,8 @@ Antes de dar por bueno un cambio:
    - Hacer una copia de `Data/` antes de `--simulate-send`: borra las carpetas de
      los anuncios, pero conserva las de cuenta y categoría.
    - `poetry run vinted --simulate-send`: ver en `http://127.0.0.1:7900` que se
-     rellenan todas las secciones; confirmar en los logs que **no** se pulsó
+     rellenan todas las secciones, incluido el campo «Talla» con la primera
+     opción de Vinted que contenga la talla calculada; confirmar en los logs que **no** se pulsó
      «Subir», que se volvió atrás descartando cambios y que solo desaparecieron
      las carpetas hojas de los anuncios.
    - Comprobar que `--dry-run`, `--simulate-send` y `--publish` son exclusivos:

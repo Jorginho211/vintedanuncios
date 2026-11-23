@@ -16,15 +16,15 @@ mutuamente exclusivos. Los archivos de diseño están en `CONSTITUTION.md` y `do
 ```bash
 poetry install
 cp Data/config.json.example Data/config.json
-cp Data/description.example Data/description.txt
-cp Data/reply_added_favorites.example Data/reply_added_favorites.txt
+cp Data/description.txt.example Data/description.txt
+cp Data/reply_added_favorites.txt.example Data/reply_added_favorites.txt
 ```
 
 | Archivo real | Plantilla versionada | Contenido |
 |---|---|---|
 | `Data/config.json` | `Data/config.json.example` | Títulos por categoría y variante de marca |
-| `Data/description.txt` | `Data/description.example` | Descripción común (se usa tal cual) |
-| `Data/reply_added_favorites.txt` | `Data/reply_added_favorites.example` | Plantilla de respuesta a favoritos |
+| `Data/description.txt` | `Data/description.txt.example` | Descripción común (se usa tal cual) |
+| `Data/reply_added_favorites.txt` | `Data/reply_added_favorites.txt.example` | Plantilla de respuesta a favoritos |
 
 **Los tres archivos son obligatorios para publicar** (`vinted publish` y
 `vinted sweep`). Si falta alguno, el programa se detiene con un error que indica
@@ -121,8 +121,8 @@ documenta con sus valores por defecto:
 | `PROFILES_DIR` | `sessions` | Perfiles de Firefox por cuenta |
 | `SELENIUM_URL` | `http://127.0.0.1:4444` | Grid de Selenium |
 | `SELENIUM_WAIT_SECONDS` | `15` | Espera máxima del navegador |
-| `SELENIUM_ACTION_DELAY_MIN` | `0.5` | Pausa mínima entre acciones de Selenium |
-| `SELENIUM_ACTION_DELAY_MAX` | `1.5` | Pausa máxima entre acciones de Selenium |
+| `SELENIUM_ACTION_DELAY_MIN` | `1.0` | Pausa mínima entre acciones de Selenium |
+| `SELENIUM_ACTION_DELAY_MAX` | `2.0` | Pausa máxima entre acciones de Selenium |
 | `PAUSE_BETWEEN_LISTINGS` | `0` | Pausa entre anuncios |
 | `PAUSE_BETWEEN_ACCOUNTS` | `0` | Pausa entre cuentas |
 | `TIMEZONE` | `Europe/Madrid` | Zona horaria de los jobs (`TZ` es ignorada) |

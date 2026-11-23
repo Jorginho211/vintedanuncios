@@ -50,16 +50,17 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 ### Configuración
 
 - Los tres archivos reales de `Data/` son obligatorios para publicar o para el
-  barrido completo. Se crean copiando `config.json.example`, `description.example`
-  y `reply_added_favorites.example`. Si falta alguno (o la plantilla de respuesta
+  barrido completo. Se crean copiando `config.json.example`,
+  `description.txt.example` y `reply_added_favorites.txt.example`. Si falta alguno (o la plantilla de respuesta
   está vacía), la ejecución se detiene con un error y código de salida 1; no se
   escanea ni se publica. El comando `reply` solo exige el árbol de carpetas de
   cuenta y la plantilla: no lee `config.json` ni `description.txt`; sin cuentas
   avisa y termina con código 0.
-- `Data/config.json`: una clave por categoría, con `default` y variantes opcionales por marca (`levis`).
+- `Data/config.json`: una clave por categoría, con `default`, variantes opcionales por marca (`levis`) y la clave reservada `size` (`pants` o `top`) que elige la tabla de tallas. Falta o valor inválido detiene la ejecución.
 - Selección del título: `config.json` usa el nombre de carpeta de categoría completo (puntos literales) + `marca.lower()`; si no hay variante, `default`. El título enviado es `<Marca> <Modelo> <Titulo>`. La marca también se elige en el campo «Marca»; el modelo no existe como campo en Vinted y solo va en el título. Las medidas no se envían.
 - El formulario usa la categoría antes del primer punto (`Cortavientos.General` → `Cortavientos`).
-- `Data/description.txt`: descripción común a todas las categorías; se usa tal cual. Si aparece el placeholder `{{TALLA}}`, se deja **literal** y se resolverá en una iteración futura.
+- Talla: `width_cm` es el ancho plano de la prenda (media vuelta). La tabla `pants` produce `WXX | ES XX` con `ES = W + 10`; la tabla `top` produce de `XXXS` a `8XL`. Solo `Pantalones Anchos` usa `pants`. Medidas fuera de tabla son error de escaneo. La misma talla se sustituye en `{{TALLA}}` y se busca en el campo «Talla» de Vinted: se elige la primera opción del DOM que contenga `WXX` o `ES XX`; si no existe, no se publica.
+- `Data/description.txt`: descripción común a todas las categorías. Si aparece `{{TALLA}}`, se sustituye por la talla calculada.
 - `Data/reply_added_favorites.txt`: plantilla global de respuesta. Si falta o está
   vacía, la ejecución termina con error y código 1, también en el comando `reply`.
 - Las variables de entorno se leen y validan una sola vez en `shared/settings.py`;
@@ -80,6 +81,9 @@ sessions/<Cuenta>/                    (perfil Firefox; contenido ignorado por Gi
 - Conventional Commits.
 - `main` + ramas cortas para cambios grandes.
 - Tests unitarios e integración; sin E2E automático contra Vinted.
+- No se commitea con `ruff`, `mypy` o `pytest` fallidos: si un test falla, se
+  corrige el código o se adaptan el test y la documentación a la decisión
+  vigente antes de commitear. La suite queda siempre en verde.
 - Cobertura objetivo: 80 % sobre la lógica pura (`config`, `metadata`, `models`, `scanner`).
 
 ## 6. Seguridad
@@ -94,10 +98,8 @@ sessions/<Cuenta>/                    (perfil Firefox; contenido ignorado por Gi
 
 ## 7. Pendientes documentados
 
-- Resolver `{{TALLA}}` en una iteración futura (plan 010).
 - Confirmar la ubicación exacta de la alerta *"ha marcado como favorito tu artículo"*.
 - Completar el spike de persistencia del perfil Firefox (plan 002).
-- Validar el formulario completo con `--simulate-send` antes del primer `--publish`.
 
 ## 8. Proceso de cambio
 
