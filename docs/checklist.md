@@ -14,12 +14,17 @@ Antes de dar por bueno un cambio:
    - Revisar que los títulos salen de la categoría correcta (incluida la variante `levis`).
    - Revisar que la descripción contiene el texto de `description.txt`.
    - Confirmar que no se ha borrado ninguna carpeta ni publicado nada.
-7. Si el cambio afecta a Selenium:
+7. Si el cambio afecta a Selenium o a los perfiles:
+   - `poetry run vinted check-session CuentaA` con `docker compose up -d`.
+   - Ver en `http://127.0.0.1:7900` que cargue `https://www.vinted.es` y que
+     la sesión sigue iniciada; pulsar Enter y confirmar que el driver se cierra.
+   - Comprobar que un nombre de sesión inexistente termina con código 1.
+8. Si el cambio afecta a publicación:
    - Probar con **una** cuenta y **un** anuncio.
    - Usar `--publish` solo después de revisar el paso 6.
    - Confirmar que la carpeta se borra solo tras el mensaje de éxito de Vinted.
-8. Si el cambio afecta a respuestas:
+9. Si el cambio afecta a respuestas:
    - Confirmar que la plantilla existe en `Data/reply_added_favorites.txt`.
    - Verificar que solo se responde a conversaciones nuevas con la alerta acordada.
    - Comprobar que los logs no contienen texto de mensajes.
-9. `pip-audit` antes de actualizar dependencias.
+10. `pip-audit` antes de actualizar dependencias.

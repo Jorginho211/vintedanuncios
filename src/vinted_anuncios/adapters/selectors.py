@@ -6,6 +6,7 @@ contra la web real. cambiarlos aquí evita tocar la lógica de publicación.
 
 from __future__ import annotations
 
+HOME_URL = "https://www.vinted.es"
 SELL_URL = "https://www.vinted.es/sell"
 MESSAGES_URL = "https://www.vinted.es/messages"
 NOTIFICATIONS_URL = "https://www.vinted.es/notifications"

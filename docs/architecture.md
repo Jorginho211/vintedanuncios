@@ -40,6 +40,7 @@ cli / scheduler  ->  Settings + Mode
 | `adapters/vinted_wait.py` | Esperas y relleno de campos compartidos | Sí |
 | `adapters/filesystem.py` | Borrado de carpetas | Sí |
 | `features/scan_listings/` | Query que resuelve los anuncios del árbol | No |
+| `features/check_session/` | Abre Vinted con un perfil para verificar la sesión a mano | Indirecto |
 | `features/publish_listings/` | Command de publicación + simulación | No |
 | `features/reply_favorites/` | Command de respuesta + simulación | No |
 | `features/run_sweep/` | Orquestación y selección de adapters según `Mode` | Indirecto |
@@ -91,6 +92,9 @@ proyecto aún no está en producción y no se mantiene compatibilidad.
 - **Simulación por composición:** en `Mode.DRY_RUN` el runtime devuelve publishers
   y store de no-op y no crea ningún driver. Los handlers no reciben flags
   `dry_run` ni drivers nulos.
+- **Verificación manual de sesión:** `check-session` abre el home con el perfil
+  indicado y deja que el propietario compruebe el login por VNC; no hay detección
+  automática ni escritura en Vinted.
 - Procesamiento **secuencial** de cuentas (una sola sesión activa por vez).
 - Pausas configurables por estabilidad, no para evadir controles.
 - Un error en un anuncio se registra y no aborta el barrido.
@@ -103,5 +107,6 @@ proyecto aún no está en producción y no se mantiene compatibilidad.
 - Los selectores de `adapters/selectors.py` son provisionales: validar contra la web real.
 - La ubicación de la alerta de favorito está pendiente de confirmar.
 - La caption se lee del nombre del archivo con `pathlib.stem`; no se usan metadatos ni librerías externas.
-- El perfil de Firefox en `sessions/<Cuenta>/` debe verificarse entre ejecuciones.
+- El perfil de Firefox en `sessions/<Cuenta>/` debe verificarse entre ejecuciones
+  con `vinted check-session <Cuenta>` (plan 014).
 - Destino del campo `modelo` en el formulario de Vinted: pendiente.

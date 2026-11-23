@@ -48,6 +48,21 @@ Para dejar el job programado a las 16:00 de `Europe/Madrid`:
 poetry run vinted --publish --schedule
 ```
 
+## Verificar una sesión
+
+Para comprobar a mano si sigues iniciado en Vinted con un perfil guardado, indica
+el nombre de la carpeta dentro de `sessions/` (por ejemplo `sessions/CuentaA`):
+
+```bash
+docker compose up -d
+poetry run vinted check-session CuentaA
+```
+
+El comando abre `https://www.vinted.es` en el Firefox del contenedor. Mira la
+pantalla en `http://127.0.0.1:7900` y pulsa Enter en la terminal para cerrar el
+navegador. Si la carpeta de sesión no existe, termina con un error y código 1.
+Este comando solo navega: no publica, no responde y no inicia sesión por ti.
+
 ## Variables de entorno
 
 Todas se leen una sola vez al arrancar y se validan en `shared/settings.py`.
