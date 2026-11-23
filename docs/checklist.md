@@ -27,4 +27,15 @@ Antes de dar por bueno un cambio:
    - Confirmar que la plantilla existe en `Data/reply_added_favorites.txt`.
    - Verificar que solo se responde a conversaciones nuevas con la alerta acordada.
    - Comprobar que los logs no contienen texto de mensajes.
-10. `pip-audit` antes de actualizar dependencias.
+10. Comprobar los comandos separados en simulación:
+    - `poetry run vinted publish --dry-run`: publica anuncios, no responde favoritos.
+    - `poetry run vinted reply --dry-run`: recorre las carpetas de cuenta, no
+      escanea ni publica.
+    - `poetry run vinted sweep --dry-run`: hace ambas cosas como `vinted --dry-run`.
+11. Renombrar temporalmente `Data/config.json`: `vinted reply --dry-run` debe seguir
+    terminando con código 0, mientras `vinted publish --dry-run` termina con código 1.
+12. Con `Data/` sin carpetas de cuenta, `vinted reply --dry-run` avisa y termina con
+    código 0; sin plantilla de respuesta, termina con código 1.
+13. Revisar que `vinted --help` muestra `publish`, `reply` y `sweep`, y que
+    `REPLY_CRON` aparece documentada en `.env.example`.
+14. `pip-audit` antes de actualizar dependencias.

@@ -26,7 +26,7 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 | Entorno y dependencias | Poetry (`pyproject.toml`, `poetry.lock`) |
 | Automatización | Selenium + Firefox (Docker, `docker-compose.yaml`) |
 | Caption | Nombre del archivo de foto; solo `pathlib`, sin librerías de metadatos |
-| Scheduler | APScheduler, cron `0 16 * * *`, `Europe/Madrid` configurable por `TIMEZONE` |
+| Scheduler | APScheduler: publicación `0 16 * * *` y favoritos `REPLY_CRON` (`*/15 * * * *`), `Europe/Madrid` configurable por `TIMEZONE` |
 | CLI | Typer |
 | Calidad | Ruff, mypy estricto, pytest, pre-commit (Ruff + mypy + detect-secrets), pip-audit manual |
 
@@ -47,14 +47,18 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 
 ### Configuración
 
-- Los tres archivos reales de `Data/` son obligatorios. Se crean copiando
-  `config.json.example`, `description.example` y `reply_added_favorites.example`.
-  Si falta alguno (o la plantilla de respuesta está vacía), la ejecución se
-  detiene con un error y código de salida 1; no se escanea ni se publica.
+- Los tres archivos reales de `Data/` son obligatorios para publicar o para el
+  barrido completo. Se crean copiando `config.json.example`, `description.example`
+  y `reply_added_favorites.example`. Si falta alguno (o la plantilla de respuesta
+  está vacía), la ejecución se detiene con un error y código de salida 1; no se
+  escanea ni se publica. El comando `reply` solo exige el árbol de carpetas de
+  cuenta y la plantilla: no lee `config.json` ni `description.txt`; sin cuentas
+  avisa y termina con código 0.
 - `Data/config.json`: una clave por categoría, con `default` y variantes opcionales por marca (`levis`).
 - Selección del título: nombre de carpeta de categoría (coincidencia exacta; los puntos son literales) + `marca.lower()`. Si no hay variante, se usa `default` sin aviso.
 - `Data/description.txt`: descripción común a todas las categorías; se usa tal cual. Si aparece el placeholder `{{TALLA}}`, se deja **literal** y se resolverá en una iteración futura.
-- `Data/reply_added_favorites.txt`: plantilla global de respuesta. Si no existe, el módulo de respuestas se omite con un aviso.
+- `Data/reply_added_favorites.txt`: plantilla global de respuesta. Si falta o está
+  vacía, la ejecución termina con error y código 1, también en el comando `reply`.
 - Las variables de entorno se leen y validan una sola vez en `shared/settings.py`;
   `config.py` queda reservado a la configuración de dominio de `Data/`. Los nombres
   de entorno van en inglés, igual que los identificadores de código.

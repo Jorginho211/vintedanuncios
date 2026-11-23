@@ -9,7 +9,7 @@ import pytest
 
 from vinted_anuncios.adapters.filesystem import FilesystemListingStore
 from vinted_anuncios.features.run_sweep import runtime as runtime_module
-from vinted_anuncios.features.run_sweep.handler import run_sweep
+from vinted_anuncios.features.run_sweep.handler import run_publish, run_reply, run_sweep
 from vinted_anuncios.features.run_sweep.noop_store import NoOpListingStore
 from vinted_anuncios.shared.config import ConfigError
 from vinted_anuncios.shared.models import Listing, Mode, PublishResult, ReplyResult
@@ -55,17 +55,34 @@ class StubReplier:
         return ReplyResult((), ())
 
 
+class RecordingReplier:
+    def __init__(self, result: ReplyResult) -> None:
+        self.result = result
+        self.templates: list[str] = []
+
+    def reply(self, template: str) -> ReplyResult:
+        self.templates.append(template)
+        return self.result
+
+
 class FakeRuntime:
-    def __init__(self, publisher: ListingPublisher, store: ListingStore) -> None:
+    def __init__(
+        self,
+        publisher: ListingPublisher,
+        store: ListingStore,
+        replier: FavoriteReplier | None = None,
+    ) -> None:
         self._publisher = publisher
-        self._replier: FavoriteReplier = StubReplier()
+        self._replier: FavoriteReplier = replier if replier is not None else StubReplier()
         self.store = store
         self.closed = False
+        self.replier_accounts: list[str] = []
 
     def publisher_for(self, account: str) -> ListingPublisher:
         return self._publisher
 
     def replier_for(self, account: str) -> FavoriteReplier:
+        self.replier_accounts.append(account)
         return self._replier
 
     def close(self) -> None:
@@ -108,6 +125,15 @@ def _prepare(tmp_path: Path) -> Path:
     (data_dir / "reply_added_favorites.txt").write_text("Gracias", encoding="utf-8")
     (folder / IMAGE_NAME).write_bytes(b"foto")
     return folder
+
+
+def _prepare_accounts(tmp_path: Path, *accounts: str) -> Path:
+    data_dir = tmp_path / "Data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    for name in accounts:
+        (data_dir / name).mkdir()
+    (data_dir / "reply_added_favorites.txt").write_text("Gracias", encoding="utf-8")
+    return data_dir
 
 
 def _patch_factory(
@@ -218,3 +244,113 @@ def test_simulacion_no_borra_con_store_inerte(tmp_path: Path) -> None:
     )
 
     assert (folder / IMAGE_NAME).exists()
+
+
+def test_run_publish_no_responde_favoritos(tmp_path: Path) -> None:
+    _prepare(tmp_path)
+    publisher = RecordingPublisher(PublishResult(ok=True, message="publicado"))
+    replier = RecordingReplier(ReplyResult((), ()))
+    runtime = FakeRuntime(publisher, NoOpListingStore(), replier)
+
+    run_publish(
+        _settings(tmp_path),
+        Mode.PUBLISH,
+        logger=LOGGER,
+        runtime_factory=lambda *_args, **_kwargs: runtime,
+    )
+
+    assert len(publisher.listings) == 1
+    assert replier.templates == []
+    assert runtime.closed is True
+
+
+def test_run_reply_recorre_las_cuentas_desde_data(tmp_path: Path) -> None:
+    data_dir = _prepare_accounts(tmp_path, "CuentaB", "CuentaA")
+    replier = RecordingReplier(ReplyResult(replied=("1",), errors=()))
+    runtime = FakeRuntime(
+        RecordingPublisher(PublishResult(ok=True, message="publicado")),
+        NoOpListingStore(),
+        replier,
+    )
+
+    run_reply(
+        _settings(tmp_path),
+        Mode.PUBLISH,
+        logger=LOGGER,
+        runtime_factory=lambda *_args, **_kwargs: runtime,
+    )
+
+    assert runtime.replier_accounts == ["CuentaA", "CuentaB"]
+    assert replier.templates == ["Gracias", "Gracias"]
+    assert not (data_dir / "config.json").exists()
+    assert not (data_dir / "description.txt").exists()
+    assert runtime.closed is True
+
+
+def test_run_reply_sin_cuentas_no_crea_runtime(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    _prepare_accounts(tmp_path)
+
+    def forbidden(*_args: object, **_kwargs: object) -> FakeRuntime:
+        raise AssertionError("No se debe crear el runtime sin cuentas")
+
+    with caplog.at_level(logging.WARNING):
+        run_reply(
+            _settings(tmp_path),
+            Mode.DRY_RUN,
+            logger=LOGGER,
+            runtime_factory=forbidden,
+        )
+
+    assert "No hay carpetas de cuenta" in caplog.text
+
+
+def test_run_reply_sin_plantilla_falla_antes_de_crear_runtime(tmp_path: Path) -> None:
+    data_dir = _prepare_accounts(tmp_path, "CuentaA")
+    (data_dir / "reply_added_favorites.txt").unlink()
+
+    def forbidden(*_args: object, **_kwargs: object) -> FakeRuntime:
+        raise AssertionError("No se debe crear el runtime sin plantilla")
+
+    with pytest.raises(ConfigError):
+        run_reply(
+            _settings(tmp_path),
+            Mode.DRY_RUN,
+            logger=LOGGER,
+            runtime_factory=forbidden,
+        )
+
+
+def test_run_reply_sin_data_falla(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError):
+        run_reply(_settings(tmp_path), Mode.DRY_RUN, logger=LOGGER)
+
+
+def test_run_reply_dry_run_no_crea_navegador(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _prepare_accounts(tmp_path, "Cuenta")
+    created: list[str] = []
+    closed: list[DriverPort] = []
+    _patch_factory(monkeypatch, created, closed)
+
+    run_reply(_settings(tmp_path), Mode.DRY_RUN, logger=LOGGER)
+
+    assert created == []
+    assert closed == []
+
+
+def test_run_reply_publish_crea_y_cierra_driver_por_cuenta(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _prepare_accounts(tmp_path, "CuentaA", "CuentaB")
+    created: list[str] = []
+    closed: list[DriverPort] = []
+    _patch_factory(monkeypatch, created, closed)
+    monkeypatch.setattr(runtime_module, "VintedFavoriteReplier", StubVintedReplier)
+
+    run_reply(_settings(tmp_path), Mode.PUBLISH, logger=LOGGER)
+
+    assert created == ["CuentaA", "CuentaB"]
+    assert len(closed) == 2

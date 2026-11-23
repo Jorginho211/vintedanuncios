@@ -20,6 +20,7 @@ class Settings:
     profiles_dir: Path
     selenium_url: str
     timezone: ZoneInfo
+    reply_cron: str
     wait_seconds: float
     pause_between_listings: float
     pause_between_accounts: float
@@ -57,11 +58,16 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     except (ZoneInfoNotFoundError, ValueError) as exc:
         raise SettingsError(f"TIMEZONE no es válida: {timezone_name!r}") from exc
 
+    reply_cron = env.get("REPLY_CRON", "*/15 * * * *").strip()
+    if not reply_cron:
+        raise SettingsError("REPLY_CRON no puede estar vacía")
+
     return Settings(
         data_dir=Path(env.get("DATA_DIR", "Data")),
         profiles_dir=Path(env.get("PROFILES_DIR", "sessions")),
         selenium_url=_check_url(env.get("SELENIUM_URL", "http://127.0.0.1:4444")),
         timezone=timezone,
+        reply_cron=reply_cron,
         wait_seconds=_number(env, "SELENIUM_WAIT_SECONDS", 15.0, positive=True),
         pause_between_listings=_number(env, "PAUSE_BETWEEN_LISTINGS", 0.0, positive=False),
         pause_between_accounts=_number(env, "PAUSE_BETWEEN_ACCOUNTS", 0.0, positive=False),

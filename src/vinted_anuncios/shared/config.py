@@ -26,6 +26,12 @@ def validate_data_dir(data_dir: Path) -> None:
         raise ConfigError(f"Faltan archivos obligatorios en {data_dir}: {details}")
 
 
+def validate_reply_data_dir(data_dir: Path) -> None:
+    """Comprueba que existe el árbol del que se sacan las cuentas; no exige más archivos."""
+    if not data_dir.is_dir():
+        raise ConfigError(f"No existe el directorio {data_dir}")
+
+
 @dataclass(frozen=True, slots=True)
 class Config:
     categories: dict[str, dict[str, str]]

@@ -25,9 +25,14 @@ cp Data/reply_added_favorites.example Data/reply_added_favorites.txt
 | `Data/description.txt` | `Data/description.example` | Descripción común (se usa tal cual) |
 | `Data/reply_added_favorites.txt` | `Data/reply_added_favorites.example` | Plantilla de respuesta a favoritos |
 
-**Los tres archivos son obligatorios.** Si falta alguno, el programa se detiene
-con un error que indica qué plantilla copiar y termina con código 1: no escanea,
-no publica y no responde. Tampoco funciona si la plantilla de respuesta está vacía.
+**Los tres archivos son obligatorios para publicar** (`vinted publish` y
+`vinted sweep`). Si falta alguno, el programa se detiene con un error que indica
+qué plantilla copiar y termina con código 1: no escanea ni publica. Tampoco funciona
+si la plantilla de respuesta está vacía.
+
+`vinted reply` solo necesita las carpetas de cuenta en `Data/` y la plantilla de
+respuesta: no lee `config.json` ni `description.txt`. Si no hay carpetas de cuenta,
+avisa y termina con código 0.
 
 La simulación no necesita Docker:
 
@@ -42,11 +47,29 @@ docker compose up -d
 poetry run vinted --publish
 ```
 
-Para dejar el job programado a las 16:00 de `Europe/Madrid`:
+Para dejar ambos jobs programados —publicación a las 16:00 de `Europe/Madrid` y
+revisión de favoritos cada 15 minutos— con `--publish`:
 
 ```bash
 poetry run vinted --publish --schedule
 ```
+
+## Publicar y responder por separado
+
+```bash
+# Solo publica anuncios pendientes; no revisa favoritos
+poetry run vinted publish --dry-run
+
+# Solo revisa favoritos en cada cuenta; no escanea ni publica
+poetry run vinted reply --dry-run
+
+# Barrido completo bajo demanda (igual que `vinted --dry-run`)
+poetry run vinted sweep --dry-run
+```
+
+La frecuencia del job de favoritos se ajusta con `REPLY_CRON` (por defecto
+`*/15 * * * *`). Los dos jobs comparten un bloqueo para no abrir dos veces el
+mismo perfil Firefox; `publish` y `reply` son bajo demanda y no aceptan `--schedule`.
 
 ## Verificar una sesión
 
@@ -77,7 +100,8 @@ documenta con sus valores por defecto:
 | `SELENIUM_WAIT_SECONDS` | `15` | Espera máxima del navegador |
 | `PAUSE_BETWEEN_LISTINGS` | `0` | Pausa entre anuncios |
 | `PAUSE_BETWEEN_ACCOUNTS` | `0` | Pausa entre cuentas |
-| `TIMEZONE` | `Europe/Madrid` | Zona horaria del job (`TZ` es ignorada) |
+| `TIMEZONE` | `Europe/Madrid` | Zona horaria de los jobs (`TZ` es ignorada) |
+| `REPLY_CRON` | `*/15 * * * *` | Frecuencia de la revisión de favoritos |
 
 ## Estado
 

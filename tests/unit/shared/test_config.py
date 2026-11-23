@@ -11,6 +11,7 @@ from vinted_anuncios.shared.config import (
     load_reply_template,
     title_for,
     validate_data_dir,
+    validate_reply_data_dir,
 )
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "Data"
@@ -78,6 +79,16 @@ def test_validate_data_dir_con_archivos_reales() -> None:
 def test_validate_data_dir_sin_archivos(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="config.json.example"):
         validate_data_dir(tmp_path)
+
+
+def test_validate_reply_data_dir_acepta_arbol_de_cuentas(tmp_path: Path) -> None:
+    (tmp_path / "CuentaA").mkdir()
+    validate_reply_data_dir(tmp_path)
+
+
+def test_validate_reply_data_dir_sin_directorio(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match="No existe el directorio"):
+        validate_reply_data_dir(tmp_path / "Inexistente")
 
 
 def test_archivos_ejemplo_existen() -> None:

@@ -4,7 +4,9 @@
 
 - **Unitarios** (`tests/unit/`): `shared/` (settings, caption, títulos y contratos)
   y `features/` (query de escaneo y comandos de publicación/respuesta). Los tests
-  de `run_sweep` inyectan un runtime falso: sin navegador ni red.
+  de `run_sweep`, `run_publish` y `run_reply` inyectan un runtime falso: sin
+  navegador ni red. La CLI se prueba con `CliRunner` y el scheduler con un
+  scheduler falso y un bloqueo grabador; tampoco abren Selenium.
 - **Integración** (`tests/integration/`): lectura real de la caption desde el
   nombre de una foto y comprobación de selectores contra un snapshot HTML.
 - **E2E:** no automatizado. La verificación contra Vinted se hace con

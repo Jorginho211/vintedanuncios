@@ -13,6 +13,7 @@ def test_load_settings_usa_los_defaults() -> None:
     assert settings.profiles_dir == Path("sessions")
     assert settings.selenium_url == "http://127.0.0.1:4444"
     assert str(settings.timezone) == "Europe/Madrid"
+    assert settings.reply_cron == "*/15 * * * *"
     assert settings.wait_seconds == 15.0
     assert settings.pause_between_listings == 0.0
     assert settings.pause_between_accounts == 0.0
@@ -29,6 +30,7 @@ def test_load_settings_lee_los_nombres_ingleses() -> None:
             "PAUSE_BETWEEN_LISTINGS": "2",
             "PAUSE_BETWEEN_ACCOUNTS": "5",
             "TIMEZONE": "UTC",
+            "REPLY_CRON": "*/5 * * * *",
         }
     )
     assert settings.data_dir == Path("/tmp/datos")
@@ -38,6 +40,7 @@ def test_load_settings_lee_los_nombres_ingleses() -> None:
     assert settings.pause_between_listings == 2.0
     assert settings.pause_between_accounts == 5.0
     assert str(settings.timezone) == "UTC"
+    assert settings.reply_cron == "*/5 * * * *"
 
 
 def test_load_settings_ignora_tz() -> None:
@@ -54,6 +57,7 @@ def test_load_settings_ignora_tz() -> None:
         {"PAUSE_BETWEEN_ACCOUNTS": "lento"},
         {"TIMEZONE": "Zona/Que/No/Existe"},
         {"SELENIUM_URL": "ftp://127.0.0.1:4444"},
+        {"REPLY_CRON": "   "},
     ],
 )
 def test_load_settings_rechaza_valores_invalidos(environ: dict[str, str]) -> None:
