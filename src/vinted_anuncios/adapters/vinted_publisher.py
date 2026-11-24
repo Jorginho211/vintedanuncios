@@ -6,6 +6,7 @@ from typing import cast
 
 from selenium.common.exceptions import (
     NoSuchElementException,
+    StaleElementReferenceException,
     TimeoutException,
     UnexpectedAlertPresentException,
     WebDriverException,
@@ -16,7 +17,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from ..shared.models import Listing, PublishResult
 from ..shared.pause import ActionPacer
-from ..shared.ports import DriverPort
+from ..shared.ports import DriverPort, ElementPort
 from ..shared.settings import Settings
 from ..shared.sizes import matches_vinted_size
 from . import selectors
@@ -51,11 +52,14 @@ class VintedListingPublisher:
         logger: logging.Logger,
         *,
         submit: bool = True,
+        check_submit: bool = False,
     ) -> None:
         self._driver = driver
         self._settings = settings
         self._logger = logger
-        self._submit = submit
+        # El diagnóstico gana siempre: nunca debe combinarse con un clic real.
+        self._check_submit = check_submit
+        self._submit = submit and not check_submit
         self._step_name = "inicio"
         self._pacer = ActionPacer(settings.action_delay_min, settings.action_delay_max)
 
@@ -79,9 +83,14 @@ class VintedListingPublisher:
             self._choose_shipping()
             if self._submit:
                 self._submit_form()
+                message = "publicado"
+            elif self._check_submit:
+                self._check_submit_form()
+                self._leave_form()
+                message = "diagnóstico (sin pulsar Subir)"
             else:
                 self._leave_form()
-            message = "publicado" if self._submit else "simulado (sin pulsar Subir)"
+                message = "simulado (sin pulsar Subir)"
             return PublishResult(ok=True, message=message)
         except (NoSuchElementException, TimeoutException, WebDriverException, RuntimeError) as exc:
             detail = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
@@ -236,22 +245,112 @@ class VintedListingPublisher:
         click_css(driver, option, timeout, clickable=False)
         self._pace()
 
+    @staticmethod
+    def _safe_attribute(element: ElementPort, name: str) -> str:
+        try:
+            value = element.get_attribute(name)
+        except (StaleElementReferenceException, WebDriverException):
+            return "<no legible>"
+        return value if isinstance(value, str) else "<ausente>"
+
+    def _option_label(self, option: ElementPort) -> str:
+        """Vinted expone la etiqueta en `aria-label`; el texto es el respaldo."""
+        label = self._safe_attribute(option, "aria-label")
+        if label in ("<ausente>", "<no legible>"):
+            label = ""
+        return label.strip() or str(option.text).strip()
+
+    def _size_value(self) -> str:
+        elements = self._driver.find_elements(By.CSS_SELECTOR, selectors.SELECTOR_SIZE)
+        return self._safe_attribute(elements[0], "value") if elements else "<ausente>"
+
+    def _describe_size_options(self) -> str:
+        options = self._driver.find_elements(By.CSS_SELECTOR, selectors.SELECTOR_SIZE_OPTION_ANY)
+        labels = [self._option_label(option) for option in options[:20]]
+        return f"{len(options)} opciones en el desplegable: {labels}"
+
+    def _size_confirmation(self, size: str, clicked: ElementPort | None) -> tuple[bool | None, str]:
+        """Devuelve confirmación, rechazo o «sin señal» y el detalle visto.
+
+        Vinted mantiene `value=""` en el campo de talla incluso tras elegir una
+        opción, así que `aria-checked` manda; el valor del campo es solo respaldo.
+        """
+        value = self._size_value()
+        if value not in ("<ausente>", "<no legible>") and matches_vinted_size(size, value):
+            return True, f"campo={value!r}"
+
+        for option in self._driver.find_elements(By.CSS_SELECTOR, selectors.SELECTOR_SIZE_OPTION):
+            checked = self._safe_attribute(option, "aria-checked").casefold()
+            if checked != "true":
+                continue
+            label = self._option_label(option)
+            if matches_vinted_size(size, label):
+                return True, f"opción={label!r} aria-checked=true"
+            return False, f"Vinted marcó {label!r} en lugar de {size!r}"
+
+        if clicked is not None:
+            checked = self._safe_attribute(clicked, "aria-checked").casefold()
+            if checked == "true":
+                return True, f"opción {size!r} aria-checked=true"
+            if checked == "false":
+                return False, f"la opción {size!r} sigue aria-checked=false"
+
+        return None, f"sin señal de confirmación; campo={value!r}; {self._describe_size_options()}"
+
+    def _confirm_size(self, size: str, timeout: float, clicked: ElementPort) -> None:
+        def has_signal(_driver: WebDriver) -> object:
+            confirmed, _ = retry_on_stale(lambda: self._size_confirmation(size, clicked))
+            return confirmed is not None or None
+
+        try:
+            WebDriverWait(cast(WebDriver, self._driver), timeout).until(has_signal)
+        except TimeoutException as exc:
+            confirmed, detail = self._size_confirmation(size, clicked)
+            if confirmed is False:
+                raise RuntimeError(f"Vinted no guardó la talla {size!r}; {detail}") from exc
+            self._logger.warning("No se pudo confirmar la talla %s: %s", size, detail)
+            return
+
+        confirmed, detail = self._size_confirmation(size, clicked)
+        if confirmed is False:
+            raise RuntimeError(f"Vinted no guardó la talla {size!r}; {detail}")
+        self._logger.debug("Talla %s confirmada: %s", size, detail)
+
     def _choose_size(self, size: str) -> None:
-        self._step(f"talla {size!r}")
         driver = self._driver
         timeout = self._settings.wait_seconds
-        click_css(driver, selectors.SELECTOR_SIZE, timeout)
+        self._step(f"talla {size!r}: abrir desplegable")
+        try:
+            click_css(driver, selectors.SELECTOR_SIZE, timeout)
+        except TimeoutException as exc:
+            found = len(driver.find_elements(By.CSS_SELECTOR, selectors.SELECTOR_SIZE))
+            raise RuntimeError(
+                f"no se abrió el campo de talla {selectors.SELECTOR_SIZE!r} ({found} campos)"
+            ) from exc
         self._pace()
 
+        self._step(f"talla {size!r}: buscar opción")
+
         def attempt() -> None:
-            options = wait_for_all(driver, selectors.SELECTOR_SIZE_OPTION, timeout)
+            try:
+                options = wait_for_all(driver, selectors.SELECTOR_SIZE_OPTION, timeout)
+            except TimeoutException as exc:
+                raise RuntimeError(
+                    f"no aparecieron opciones con {selectors.SELECTOR_SIZE_OPTION!r}; "
+                    f"{self._describe_size_options()}"
+                ) from exc
             for option in options:
-                if matches_vinted_size(size, option.text):
-                    self._logger.debug("Talla %s: opción elegida %s", size, option.text)
+                label = self._option_label(option)
+                if matches_vinted_size(size, label):
+                    self._step(f"talla {size!r}: elegir opción")
+                    self._logger.debug("Talla %s: opción elegida %s", size, label)
                     click_js(driver, option)
                     self._pace()
+                    self._confirm_size(size, timeout, option)
                     return
-            raise RuntimeError(f"Vinted no ofreció la talla {size!r}")
+            raise RuntimeError(
+                f"Vinted no ofreció la talla {size!r}; {self._describe_size_options()}"
+            )
 
         retry_on_stale(attempt)
 
@@ -288,14 +387,80 @@ class VintedListingPublisher:
         click_css(self._driver, selectors.SELECTOR_PACKAGE_SMALL, self._settings.wait_seconds)
         self._pace()
 
-    def _submit_form(self) -> None:
-        self._step("pulsar Subir")
-        driver = self._driver
-        click_css(driver, selectors.SELECTOR_SUBMIT, self._settings.wait_seconds)
-        self._pace()
-        WebDriverWait(cast(WebDriver, driver), 30).until(
-            lambda d: "/items/new" not in d.current_url
+    def _current_url(self) -> str:
+        try:
+            return str(cast(WebDriver, self._driver).current_url)
+        except WebDriverException:
+            return "<no disponible>"
+
+    def _submit_button_state(self) -> str:
+        buttons = self._driver.find_elements(By.CSS_SELECTOR, selectors.SELECTOR_SUBMIT)
+        if not buttons:
+            return f"sin botón {selectors.SELECTOR_SUBMIT}"
+        button = buttons[0]
+        return (
+            f"botón {selectors.SELECTOR_SUBMIT}: "
+            f"disabled={self._safe_attribute(button, 'disabled')!r}, "
+            f"aria-disabled={self._safe_attribute(button, 'aria-disabled')!r}, "
+            f"class={self._safe_attribute(button, 'class')!r}"
         )
+
+    def _form_state(self) -> str:
+        fields = (
+            ("título", selectors.SELECTOR_TITLE),
+            ("descripción", selectors.SELECTOR_DESCRIPTION),
+            ("precio", selectors.SELECTOR_PRICE),
+            ("categoría", selectors.SELECTOR_CATEGORY),
+            ("marca", selectors.SELECTOR_BRAND),
+            ("talla", selectors.SELECTOR_SIZE),
+        )
+        parts: list[str] = []
+        for name, css in fields:
+            elements = self._driver.find_elements(By.CSS_SELECTOR, css)
+            value = self._safe_attribute(elements[0], "value") if elements else "<ausente>"
+            parts.append(f"{name}={value!r}")
+        parts.append(self._submit_button_state())
+        parts.append(f"URL={self._current_url()}")
+        return "; ".join(parts)
+
+    def _visible_form_errors(self) -> str:
+        errors = self._driver.find_elements(By.CSS_SELECTOR, selectors.SELECTOR_UPLOAD_ERROR)
+        texts = [str(element.text).strip() for element in errors]
+        return f"; errores de Vinted={texts!r}" if any(texts) else ""
+
+    def _check_submit_form(self) -> None:
+        self._step("diagnóstico antes de Subir")
+        state = self._form_state()
+        self._logger.info("Estado del formulario antes de «Subir»: %s", state)
+        buttons = self._driver.find_elements(By.CSS_SELECTOR, selectors.SELECTOR_SUBMIT)
+        if not buttons:
+            raise RuntimeError(f"no aparece el botón «Subir»: {state}")
+        # En HTML, `disabled=""` también deshabilita: basta con que exista.
+        disabled = self._safe_attribute(buttons[0], "disabled")
+        aria_disabled = self._safe_attribute(buttons[0], "aria-disabled").casefold()
+        if disabled != "<ausente>" or aria_disabled == "true":
+            raise RuntimeError(f"«Subir» está deshabilitado: {state}")
+
+    def _submit_form(self) -> None:
+        driver = self._driver
+        self._step("Subir: pulsar")
+        try:
+            click_css(driver, selectors.SELECTOR_SUBMIT, self._settings.wait_seconds)
+        except TimeoutException as exc:
+            raise RuntimeError(
+                f"no se pudo pulsar «Subir»: {self._submit_button_state()}; {self._form_state()}"
+            ) from exc
+        self._pace()
+        self._step("Subir: esperar navegación")
+        try:
+            WebDriverWait(cast(WebDriver, driver), 30).until(
+                lambda d: "/items/new" not in d.current_url
+            )
+        except TimeoutException as exc:
+            raise RuntimeError(
+                f"«Subir» pulsado pero Vinted no navegó: URL={self._current_url()}; "
+                f"{self._form_state()}{self._visible_form_errors()}"
+            ) from exc
 
     def _leave_form(self) -> None:
         self._step("volver atrás sin publicar")

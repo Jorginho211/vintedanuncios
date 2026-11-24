@@ -103,6 +103,7 @@ class StubVintedPublisher:
         logger: logging.Logger,
         *,
         submit: bool = True,
+        check_submit: bool = False,
     ) -> None:
         pass
 
@@ -415,9 +416,16 @@ def test_simulate_send_configura_el_publicador_sin_submit(
 
     class CapturePublisher:
         def __init__(
-            self, driver: DriverPort, settings: Settings, logger: logging.Logger, *, submit: bool
+            self,
+            driver: DriverPort,
+            settings: Settings,
+            logger: logging.Logger,
+            *,
+            submit: bool,
+            check_submit: bool = False,
         ) -> None:
             captured["submit"] = submit
+            captured["check_submit"] = check_submit
 
         def publish(self, listing: Listing) -> PublishResult:
             return PublishResult(ok=True, message="simulado")
@@ -440,6 +448,55 @@ def test_simulate_send_configura_el_publicador_sin_submit(
     )
 
     assert captured["submit"] is False
+    assert captured["check_submit"] is False
+    assert created == ["Cuenta"]
+    runtime.close()
+    assert len(closed) == 1
+
+
+def test_check_submit_no_publica_ni_borra_carpetas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created: list[str] = []
+    closed: list[DriverPort] = []
+    _patch_factory(monkeypatch, created, closed)
+    captured: dict[str, bool] = {}
+
+    class CapturePublisher:
+        def __init__(
+            self,
+            driver: DriverPort,
+            settings: Settings,
+            logger: logging.Logger,
+            *,
+            submit: bool,
+            check_submit: bool = False,
+        ) -> None:
+            captured["submit"] = submit
+            captured["check_submit"] = check_submit
+
+        def publish(self, listing: Listing) -> PublishResult:
+            return PublishResult(ok=True, message="diagnóstico")
+
+    monkeypatch.setattr(runtime_module, "VintedListingPublisher", CapturePublisher)
+    runtime = SeleniumRuntime(_settings(tmp_path), Mode.CHECK_SUBMIT, ("Cuenta",), LOGGER)
+
+    assert isinstance(runtime.store, NoOpListingStore)
+    runtime.publisher_for("Cuenta").publish(
+        Listing(
+            account="Cuenta",
+            config_category="Cortavientos.CrazyJackets",
+            form_category="Cortavientos",
+            folder=Path("Data/Cuenta/Cortavientos.CrazyJackets/Anuncio"),
+            images=(),
+            caption=Caption(24.95, 62.0, 75.0, None, None),
+            title="Titulo",
+            description="Descripcion",
+            size="XXXL",
+        )
+    )
+
+    assert captured == {"submit": False, "check_submit": True}
     assert created == ["Cuenta"]
     runtime.close()
     assert len(closed) == 1

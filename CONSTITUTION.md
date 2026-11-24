@@ -8,7 +8,7 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 
 ## 2. Principios rectores
 
-1. **Simulación por defecto.** Ninguna acción escribe en Vinted salvo que se pase explícitamente `--publish`. Los modos `--dry-run`, `--simulate-send` y `--publish` son mutuamente exclusivos; `--simulate-send` recorre el formulario real sin pulsar «Subir».
+1. **Simulación por defecto.** Ninguna acción escribe en Vinted salvo que se pase explícitamente `--publish`. Los modos `--dry-run`, `--simulate-send`, `--check-submit` y `--publish` son mutuamente exclusivos; `--simulate-send` recorre el formulario real sin pulsar «Subir» y `--check-submit` solo diagnostica el estado del formulario antes de pulsarlo. El diagnóstico no borra carpetas; `--simulate-send` sí las borra al terminar.
 2. **El sistema de archivos es la fuente de verdad.** Una carpeta de anuncio existe = anuncio pendiente. Se borra tras la publicación confirmada o al terminar `--simulate-send`, siempre con guarda de ruta: solo `Data/<Cuenta>/<Categoría>/<Anuncio>/`.
 3. **Separación de capas.** `shared/` contiene datos y contratos; los handlers de
    `features/` contienen los casos de uso; Selenium y el filesystem viven aislados

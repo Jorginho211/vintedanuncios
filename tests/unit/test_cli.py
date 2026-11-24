@@ -89,13 +89,31 @@ def test_subcommand_sweep_acepta_simulate_send(
     assert calls == [("sweep", Mode.SIMULATE_SEND)]
 
 
+def test_subcommand_publish_acepta_check_submit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_common(monkeypatch, tmp_path)
+    calls: list[tuple[str, object]] = []
+    monkeypatch.setattr(cli_module, "run_publish", _recorder("publish", calls))
+    monkeypatch.setattr(cli_module, "run_reply", _forbidden)
+    monkeypatch.setattr(cli_module, "run_sweep", _forbidden)
+
+    result = CliRunner().invoke(cli_module.app, ["publish", "--check-submit"])
+
+    assert result.exit_code == 0, result.output
+    assert calls == [("publish", Mode.CHECK_SUBMIT)]
+
+
 @pytest.mark.parametrize(
     "flags",
     [
         ["--publish", "--dry-run"],
         ["--publish", "--simulate-send"],
         ["--dry-run", "--simulate-send"],
-        ["--publish", "--dry-run", "--simulate-send"],
+        ["--publish", "--check-submit"],
+        ["--simulate-send", "--check-submit"],
+        ["--dry-run", "--check-submit"],
+        ["--publish", "--dry-run", "--simulate-send", "--check-submit"],
     ],
 )
 def test_los_modos_son_mutuamente_exclusivos(

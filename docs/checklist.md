@@ -46,11 +46,18 @@ Antes de dar por bueno un cambio:
      lista completa y termina con `Vintage Dressing` en el campo, sin usar el
      buscador; si Vinted no ofrece esa opción, la simulación falla en el paso
      «marca» sin publicar.
-   - Comprobar que `--dry-run`, `--simulate-send` y `--publish` son exclusivos:
-     combinar dos de ellos termina con código 1.
+   - Con `Data/` de prueba, `poetry run vinted publish --check-submit`: ver en
+     los logs el estado de título, descripción, precio, categoría, marca, talla
+     y del botón «Subir» antes del clic; confirmar que no se publica ni se borra
+     ninguna carpeta. Si el botón está deshabilitado, el mensaje lo indica.
+   - Comprobar que `--dry-run`, `--simulate-send`, `--check-submit` y
+     `--publish` son exclusivos: combinar dos de ellos termina con código 1.
    - Usar `--publish` solo después de revisar los pasos 6 y 8.
    - Confirmar que la carpeta se borra solo tras el mensaje de éxito de Vinted;
      si el resultado es ambiguo, no se borra y no hay reintentos.
+   - Si falla la talla, el mensaje debe incluir las etiquetas reales de las
+     opciones del desplegable; si falla «Subir», debe distinguir «no se pudo
+     pulsar» de «pulsado pero Vinted no navegó» (plan 026).
 9. Si el cambio afecta al reply manual (`vinted reply`):
    - Confirmar que la plantilla existe en `Data/reply_added_favorites.txt`.
    - Verificar que solo se responde a conversaciones nuevas con la alerta acordada.

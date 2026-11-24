@@ -29,9 +29,15 @@ SELECTOR_CATEGORY_OPTION = (
 SELECTOR_BRAND = '[data-testid="brand-select-dropdown-input"]'
 SELECTOR_BRAND_SEARCH = "#brand-search-input"
 SELECTOR_BRAND_OPTION = '[data-testid="brand-select-dropdown-content"] [role="radio"][id^="brand-"]'
-# Validados contra el DOM real del formulario de CuentaA (plan 018).
-SELECTOR_SIZE = '[data-testid="category-size-single-grid-input"]'
-SELECTOR_SIZE_OPTION = '[data-testid="category-size-single-grid-content"] [role="checkbox"]'
+# Validados contra el DOM real del formulario de CuentaA (planes 018 y 026).
+# Pantalones usan `...-input`; tops/cortavientos, `..._chips-input`.
+SELECTOR_SIZE = 'input[id="size"][data-testid^="category-size-single-grid"]'
+SELECTOR_SIZE_CONTENT = '[data-testid^="category-size-single-grid"][data-testid$="-content"]'
+SELECTOR_SIZE_OPTION = (
+    f'{SELECTOR_SIZE_CONTENT} [role="checkbox"], {SELECTOR_SIZE_CONTENT} [role="radio"]'
+)
+# Solo para diagnóstico: cualquier nodo con role del desplegable de talla.
+SELECTOR_SIZE_OPTION_ANY = f"{SELECTOR_SIZE_CONTENT} [role]"
 SELECTOR_COLOR = '[data-testid="color-select-dropdown-input"]'
 SELECTOR_CONDITION = '[data-testid="category-condition-single-list-input"]'
 SELECTOR_CONDITION_GOOD = "#condition-2"

@@ -10,6 +10,7 @@ class Mode(StrEnum):
 
     DRY_RUN = "dry-run"
     SIMULATE_SEND = "simulate-send"
+    CHECK_SUBMIT = "check-submit"
     PUBLISH = "publish"
 
 

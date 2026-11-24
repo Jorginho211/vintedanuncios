@@ -57,10 +57,11 @@ class SeleniumRuntime:
             self._settings,
             self._logger,
             submit=self._mode is Mode.PUBLISH,
+            check_submit=self._mode is Mode.CHECK_SUBMIT,
         )
 
     def replier_for(self, account: str) -> FavoriteReplier:
-        if self._mode in (Mode.DRY_RUN, Mode.SIMULATE_SEND):
+        if self._mode in (Mode.DRY_RUN, Mode.SIMULATE_SEND, Mode.CHECK_SUBMIT):
             return DryRunFavoriteReplier(self._logger)
         return VintedFavoriteReplier(self._driver_for(account), self._settings, self._logger)
 

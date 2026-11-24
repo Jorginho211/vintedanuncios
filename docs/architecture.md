@@ -143,7 +143,10 @@ Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
 - **Simulación por composición:** en `Mode.DRY_RUN` el runtime devuelve publishers
   y store de no-op y no crea ningún driver. En `Mode.SIMULATE_SEND` usa el
   publisher real con `submit=False`, store real y, si se invoca `vinted reply`,
-  replier simulado. Los handlers no reciben flags `dry_run` ni drivers nulos.
+  replier simulado. En `Mode.CHECK_SUBMIT` usa el publisher real con
+  `check_submit=True` y store de no-op: rellena el formulario, registra el estado
+  de los campos y del botón «Subir» y descarta los cambios sin publicar ni borrar
+  carpetas. Los handlers no reciben flags `dry_run` ni drivers nulos.
 - **Sesión perezosa:** el driver se crea solo para cuentas con trabajo. Tras la
   última publicación de la cuenta se cierra; el reply manual abre su propia
   sesión. `Runtime.release(account)` lo garantiza con `try/finally`.
@@ -200,7 +203,7 @@ Validados con volcados de HTML de CuentaA (`/tmp/opencode/vinted_*.html`, plan 0
 | Marca | Se conserva la sugerencia de Vinted solo si coincide; si no, `[data-testid="brand-select-dropdown-input"]` + `#brand-search-input`, primera opción. Sin marca en la caption se abre el desplegable y se recorren las opciones `[data-testid="brand-select-dropdown-content"] [role="radio"][id^="brand-"]` con scroll por JavaScript hasta encontrar `Vintage Dressing` (texto normalizado en minúsculas); el buscador no la ofrece |
 | Color | `[data-testid="color-select-dropdown-input"]`; primera sugerencia o primer color de la lista |
 | Estado | `#condition-2` («Muy bueno») |
-| Talla | `[data-testid="category-size-single-grid-input"]` + opciones `[data-testid="category-size-single-grid-content"] [role="checkbox"]` (Vinted ofrece pares como `W34 | ES44`) |
+| Talla | `input#size` con `data-testid^="category-size-single-grid"` (pantalones terminan en `-input`; tops y cortavientos en `_chips-input`) + contenido terminado en `-content`, opciones `[role="checkbox"]` o `[role="radio"]`; se lee `aria-label` antes que el texto y se verifica con `aria-checked` o el valor del campo tras elegir |
 | Envío | `[data-testid="1-package-size--cell"]` («Pequeño»); el radio `#package_type_selector_1` está oculto |
 | Subir | `[data-testid="upload-form-save-button"]` |
 | Error de subida | `[data-testid="item-upload-critical-error-dialog"]` |
@@ -221,4 +224,6 @@ la talla calculada y sus selectores se validaron con `--simulate-send`.
   `vinted check-session <Cuenta>` (planes 014 y 020). Si Vinted expulsa la sesión
   por seguridad, hay que volver a iniciarla en VNC; el código no detecta el login.
 - Si Vinted cambia el DOM, `--simulate-send` es la forma segura de detectarlo
-  antes de publicar.
+  antes de publicar. Para el botón «Subir», `--check-submit` informa del estado
+  previo al clic; la navegación posterior solo se puede comprobar con
+  `--publish` autorizado (plan 026).

@@ -26,18 +26,26 @@ SimulateSendOption = Annotated[
         help="Rellena el formulario real sin pulsar Subir; borra las carpetas de anuncio",
     ),
 ]
+CheckSubmitOption = Annotated[
+    bool,
+    typer.Option(
+        "--check-submit",
+        help="Diagnostica el estado del formulario antes de pulsar Subir, sin publicar",
+    ),
+]
 ScheduleOption = Annotated[
     bool, typer.Option("--schedule", help="Queda vivo y ejecuta el job de publicación programado")
 ]
 
 
-def _resolve_mode(*, publish: bool, dry_run: bool, simulate_send: bool) -> Mode:
+def _resolve_mode(*, publish: bool, dry_run: bool, simulate_send: bool, check_submit: bool) -> Mode:
     flags = [
         (name, value)
         for name, value in (
             ("--publish", publish),
             ("--dry-run", dry_run),
             ("--simulate-send", simulate_send),
+            ("--check-submit", check_submit),
         )
         if value
     ]
@@ -48,6 +56,8 @@ def _resolve_mode(*, publish: bool, dry_run: bool, simulate_send: bool) -> Mode:
         return Mode.DRY_RUN
     if simulate_send:
         return Mode.SIMULATE_SEND
+    if check_submit:
+        return Mode.CHECK_SUBMIT
     if publish:
         return Mode.PUBLISH
     return Mode.DRY_RUN
@@ -59,10 +69,16 @@ def _execute(
     publish: bool,
     dry_run: bool,
     simulate_send: bool,
+    check_submit: bool,
     schedule: bool,
 ) -> None:
     try:
-        mode = _resolve_mode(publish=publish, dry_run=dry_run, simulate_send=simulate_send)
+        mode = _resolve_mode(
+            publish=publish,
+            dry_run=dry_run,
+            simulate_send=simulate_send,
+            check_submit=check_submit,
+        )
         settings = load_settings()
         logger = setup_logging(settings.log_dir)
         if schedule:
@@ -80,6 +96,7 @@ def main(
     publish: PublishOption = False,
     dry_run: DryRunOption = False,
     simulate_send: SimulateSendOption = False,
+    check_submit: CheckSubmitOption = False,
     schedule: ScheduleOption = False,
 ) -> None:
     """Recorre Data y publica los anuncios pendientes por defecto."""
@@ -90,6 +107,7 @@ def main(
         publish=publish,
         dry_run=dry_run,
         simulate_send=simulate_send,
+        check_submit=check_submit,
         schedule=schedule,
     )
 
@@ -99,6 +117,7 @@ def publish_command(
     publish: PublishOption = False,
     dry_run: DryRunOption = False,
     simulate_send: SimulateSendOption = False,
+    check_submit: CheckSubmitOption = False,
 ) -> None:
     """Escanea Data y publica anuncios; no responde favoritos."""
     _execute(
@@ -106,6 +125,7 @@ def publish_command(
         publish=publish,
         dry_run=dry_run,
         simulate_send=simulate_send,
+        check_submit=check_submit,
         schedule=False,
     )
 
@@ -115,6 +135,7 @@ def reply_command(
     publish: PublishOption = False,
     dry_run: DryRunOption = False,
     simulate_send: SimulateSendOption = False,
+    check_submit: CheckSubmitOption = False,
 ) -> None:
     """Revisa favoritos de cada cuenta; no escanea ni publica anuncios."""
     _execute(
@@ -122,6 +143,7 @@ def reply_command(
         publish=publish,
         dry_run=dry_run,
         simulate_send=simulate_send,
+        check_submit=check_submit,
         schedule=False,
     )
 
@@ -131,6 +153,7 @@ def sweep_command(
     publish: PublishOption = False,
     dry_run: DryRunOption = False,
     simulate_send: SimulateSendOption = False,
+    check_submit: CheckSubmitOption = False,
     schedule: ScheduleOption = False,
 ) -> None:
     """Publica anuncios pendientes, igual que `vinted` sin subcomando."""
@@ -139,6 +162,7 @@ def sweep_command(
         publish=publish,
         dry_run=dry_run,
         simulate_send=simulate_send,
+        check_submit=check_submit,
         schedule=schedule,
     )
 
