@@ -62,6 +62,9 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
   `Vintage Dressing` (constante en el publicador). Ese valor no forma parte de
   la caption ni del título: sin marca, el título es `<Modelo> <Titulo>` con la
   variante `default`. La sugerencia de marca de Vinted se sobrescribe en ese caso.
+  El buscador de Vinted no ofrece esa marca: se abre el desplegable y se recorre
+  el listado con scroll hasta encontrar una opción cuyo texto, normalizado en
+  minúsculas, coincida; si no aparece, se informa del error sin publicar.
 - El formulario usa la categoría antes del primer punto (`Cortavientos.General` → `Cortavientos`).
 - Talla: `width_cm` es el ancho plano de la prenda (media vuelta). La tabla `pants` produce `WXX | ES XX` con `ES = W + 10`; la tabla `top` produce de `XXXS` a `8XL`. Solo `Pantalones Anchos` usa `pants`. Medidas fuera de tabla son error de escaneo. La misma talla se sustituye en `{{TALLA}}` y se busca en el campo «Talla» de Vinted: se elige la primera opción del DOM que contenga `WXX` o `ES XX`; si no existe, no se publica.
 - `Data/description.txt`: descripción común a todas las categorías. Si aparece `{{TALLA}}`, se sustituye por la talla calculada.

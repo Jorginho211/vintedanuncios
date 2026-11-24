@@ -28,6 +28,7 @@ from .vinted_wait import (
     fill,
     go_back,
     retry_on_stale,
+    scroll_next_page,
     send_keys_css,
     wait_for,
     wait_for_all,
@@ -36,6 +37,8 @@ from .vinted_wait import (
 
 # Marca usada en el formulario cuando la caption no especifica ninguna.
 DEFAULT_BRAND = "Vintage Dressing"
+# Tope de pasos al recorrer el desplegable: la lista de marcas no es infinita.
+MAX_BRAND_SCROLL_STEPS = 60
 
 
 class VintedListingPublisher:
@@ -175,12 +178,50 @@ class VintedListingPublisher:
             self._logger.debug("Vinted ya sugirió la marca %s", current)
             self._pace()
             return
+        if self._normalized_brand(brand) == self._normalized_brand(DEFAULT_BRAND):
+            self._choose_default_brand_by_scroll()
+            return
         self._choose_from_search(
             field=selectors.SELECTOR_BRAND,
             search=selectors.SELECTOR_BRAND_SEARCH,
             option=selectors.SELECTOR_BRAND_OPTION,
             value=brand,
         )
+
+    def _choose_default_brand_by_scroll(self) -> None:
+        """El buscador no ofrece esta marca: se recorre el listado completo."""
+        self._step(f"marca {DEFAULT_BRAND!r}: desplazar listado")
+        driver = self._driver
+        timeout = self._settings.wait_seconds
+        wanted = self._normalized_brand(DEFAULT_BRAND)
+        click_css(driver, selectors.SELECTOR_BRAND, timeout)
+        self._pace()
+        for _ in range(MAX_BRAND_SCROLL_STEPS):
+            options = retry_on_stale(
+                lambda: wait_for_all(driver, selectors.SELECTOR_BRAND_OPTION, timeout)
+            )
+            if any(self._normalized_brand(option.text) == wanted for option in options):
+                self._logger.debug("Marca %s encontrada en el listado", DEFAULT_BRAND)
+                self._click_brand_option(wanted, timeout)
+                self._pace()
+                return
+            if not scroll_next_page(driver, selectors.SELECTOR_BRAND_OPTION):
+                break
+            self._pace()
+        raise RuntimeError(f"Vinted no ofreció la marca {DEFAULT_BRAND!r} tras recorrer el listado")
+
+    def _click_brand_option(self, wanted: str, timeout: float) -> None:
+        """Pulsa la opción coincidente; reconsultarla tolera re-renders de Vinted."""
+
+        def attempt() -> None:
+            options = wait_for_all(self._driver, selectors.SELECTOR_BRAND_OPTION, timeout)
+            for option in options:
+                if self._normalized_brand(option.text) == wanted:
+                    click_js(self._driver, option)
+                    return
+            raise NoSuchElementException(f"La marca {wanted!r} desapareció del listado")
+
+        retry_on_stale(attempt)
 
     def _choose_from_search(self, *, field: str, search: str, option: str, value: str) -> None:
         driver = self._driver

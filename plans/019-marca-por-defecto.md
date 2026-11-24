@@ -1,8 +1,8 @@
 # Plan 019 — Marca por defecto «Vintage Dressing»
 
-**Estado:** implementado. Verificado con ruff, mypy y pytest en verde.
-Pendiente de comprobar en `--simulate-send` que Vinted ofrece `Vintage Dressing`
-en el buscador de marcas.
+**Estado:** completado. Verificado con ruff, mypy y pytest en verde. El riesgo
+del buscador de marcas se resolvió después en el plan 021: la marca por defecto
+se selecciona recorriendo el desplegable con scroll.
 
 ## Objetivo
 
@@ -37,5 +37,6 @@ título del anuncio.
   `poetry run vinted --simulate-send` comprobando que el campo «Marca» contiene
   `Vintage Dressing` en un anuncio sin marca y que el título no lo incluye.
   Nunca `--publish` sin autorización explícita.
-- Riesgo: `_choose_from_search` falla si Vinted no ofrece `Vintage Dressing`
-  entre las opciones del buscador de marcas; verificar en la simulación.
+- Riesgo resuelto en el plan 021: `_choose_from_search` no ofrece
+  `Vintage Dressing`, por lo que la marca por defecto se elige recorriendo el
+  desplegable con scroll.

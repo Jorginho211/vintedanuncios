@@ -62,6 +62,22 @@ def click_js(driver: DriverPort, element: ElementPort) -> None:
     cast(WebDriver, driver).execute_script("arguments[0].click()", element)
 
 
+def scroll_next_page(driver: DriverPort, css: str) -> bool:
+    """Desplaza el ancestro con scroll de `css`; devuelve si `scrollTop` avanzó."""
+    script = """
+    var node = document.querySelector(arguments[0]);
+    if (!node) { return false; }
+    while (node && node.scrollHeight <= node.clientHeight) {
+        node = node.parentElement;
+    }
+    if (!node) { return false; }
+    var before = node.scrollTop;
+    node.scrollTop = before + Math.max(node.clientHeight * 0.9, 200);
+    return node.scrollTop > before;
+    """
+    return bool(cast(WebDriver, driver).execute_script(script, css))
+
+
 def click_css(driver: DriverPort, css: str, timeout: float, *, clickable: bool = True) -> None:
     """Busca y pulsa en un solo intento, repitiendo si el nodo queda obsoleto."""
 

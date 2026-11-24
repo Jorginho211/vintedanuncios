@@ -14,7 +14,7 @@ from vinted_anuncios.shared.settings import load_settings
 
 def _publisher(
     monkeypatch: pytest.MonkeyPatch, suggested: str
-) -> tuple[VintedListingPublisher, list[dict[str, str]]]:
+) -> tuple[VintedListingPublisher, list[dict[str, str]], list[str]]:
     element = MagicMock()
     element.get_attribute.return_value = suggested
     monkeypatch.setattr(vinted_publisher, "wait_for", lambda *_args, **_kwargs: element)
@@ -22,8 +22,12 @@ def _publisher(
         MagicMock(), load_settings({}), logging.getLogger("test"), submit=False
     )
     calls: list[dict[str, str]] = []
+    scroll_calls: list[str] = []
     monkeypatch.setattr(publisher, "_choose_from_search", lambda **kw: calls.append(kw))
-    return publisher, calls
+    monkeypatch.setattr(
+        publisher, "_choose_default_brand_by_scroll", lambda: scroll_calls.append("scroll")
+    )
+    return publisher, calls, scroll_calls
 
 
 def _listing(brand: str | None) -> Listing:
@@ -41,31 +45,104 @@ def _listing(brand: str | None) -> Listing:
 
 
 def test_conserva_la_marca_que_vinted_ya_sugirio(monkeypatch: pytest.MonkeyPatch) -> None:
-    publisher, calls = _publisher(monkeypatch, "Levi's")
+    publisher, calls, scroll_calls = _publisher(monkeypatch, "Levi's")
 
     publisher._ensure_brand("Levis")
 
     assert calls == []
+    assert scroll_calls == []
 
 
 def test_cambia_la_marca_si_la_sugerencia_no_coincide(monkeypatch: pytest.MonkeyPatch) -> None:
-    publisher, calls = _publisher(monkeypatch, "Otra marca")
+    publisher, calls, scroll_calls = _publisher(monkeypatch, "Otra marca")
 
     publisher._ensure_brand("Levis")
 
     assert len(calls) == 1
     assert calls[0]["value"] == "Levis"
+    assert scroll_calls == []
 
 
 def test_sustituye_la_sugerencia_de_vinted_por_la_marca_por_defecto(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    publisher, calls = _publisher(monkeypatch, "Nike")
+    publisher, calls, scroll_calls = _publisher(monkeypatch, "Nike")
 
     publisher._ensure_brand(DEFAULT_BRAND)
 
-    assert len(calls) == 1
-    assert calls[0]["value"] == "Vintage Dressing"
+    assert calls == []
+    assert scroll_calls == ["scroll"]
+
+
+def test_conserva_la_sugerencia_de_la_marca_por_defecto_en_minusculas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    publisher, calls, scroll_calls = _publisher(monkeypatch, "vintage dressing")
+
+    publisher._ensure_brand(DEFAULT_BRAND)
+
+    assert calls == []
+    assert scroll_calls == []
+
+
+def test_selecciona_la_marca_por_defecto_tras_desplazar_el_listado(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    publisher = VintedListingPublisher(
+        MagicMock(), load_settings({}), logging.getLogger("test"), submit=False
+    )
+    wrong = MagicMock()
+    wrong.text = "Levi's"
+    right = MagicMock()
+    right.text = "Vintage dressing"
+    pages = [[wrong], [wrong, right], [wrong, right]]
+    monkeypatch.setattr(vinted_publisher, "wait_for_all", lambda *_a, **_k: pages.pop(0))
+    monkeypatch.setattr(vinted_publisher, "click_css", lambda *_a, **_k: None)
+    monkeypatch.setattr(vinted_publisher, "scroll_next_page", lambda *_a: True)
+    clicked: list[object] = []
+    monkeypatch.setattr(
+        vinted_publisher, "click_js", lambda _driver, element: clicked.append(element)
+    )
+    monkeypatch.setattr(publisher, "_pace", lambda: None)
+
+    publisher._choose_default_brand_by_scroll()
+
+    assert clicked == [right]
+
+
+def test_falla_si_la_marca_por_defecto_no_aparece_al_final_del_listado(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    publisher = VintedListingPublisher(
+        MagicMock(), load_settings({}), logging.getLogger("test"), submit=False
+    )
+    option = MagicMock()
+    option.text = "Levi's"
+    scrolls = iter([True, False])
+    monkeypatch.setattr(vinted_publisher, "wait_for_all", lambda *_a, **_k: [option])
+    monkeypatch.setattr(vinted_publisher, "click_css", lambda *_a, **_k: None)
+    monkeypatch.setattr(vinted_publisher, "scroll_next_page", lambda *_a: next(scrolls))
+    monkeypatch.setattr(publisher, "_pace", lambda: None)
+
+    with pytest.raises(RuntimeError, match="tras recorrer el listado"):
+        publisher._choose_default_brand_by_scroll()
+
+
+def test_falla_si_el_listado_de_marcas_no_se_desplaza(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    publisher = VintedListingPublisher(
+        MagicMock(), load_settings({}), logging.getLogger("test"), submit=False
+    )
+    option = MagicMock()
+    option.text = "Levi's"
+    monkeypatch.setattr(vinted_publisher, "wait_for_all", lambda *_a, **_k: [option])
+    monkeypatch.setattr(vinted_publisher, "click_css", lambda *_a, **_k: None)
+    monkeypatch.setattr(vinted_publisher, "scroll_next_page", lambda *_a: False)
+    monkeypatch.setattr(publisher, "_pace", lambda: None)
+
+    with pytest.raises(RuntimeError, match="tras recorrer el listado"):
+        publisher._choose_default_brand_by_scroll()
 
 
 @pytest.mark.parametrize(

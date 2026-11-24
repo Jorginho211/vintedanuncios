@@ -38,6 +38,10 @@ Antes de dar por bueno un cambio:
      opción de Vinted que contenga la talla calculada; confirmar en los logs que **no** se pulsó
      «Subir», que se volvió atrás descartando cambios y que solo desaparecieron
      las carpetas hojas de los anuncios.
+   - Con un anuncio sin marca, ver que el desplegable «Marca» se desplaza por la
+     lista completa y termina con `Vintage Dressing` en el campo, sin usar el
+     buscador; si Vinted no ofrece esa opción, la simulación falla en el paso
+     «marca» sin publicar.
    - Comprobar que `--dry-run`, `--simulate-send` y `--publish` son exclusivos:
      combinar dos de ellos termina con código 1.
    - Usar `--publish` solo después de revisar los pasos 6 y 8.

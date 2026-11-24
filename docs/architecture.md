@@ -180,7 +180,7 @@ Validados con volcados de HTML de CuentaA (`/tmp/opencode/vinted_*.html`, plan 0
 | Fotos | `[data-testid="add-photos-input"]` (varios archivos separados por salto de línea) |
 | Título / descripción / precio | `#title`, `#description`, `#price` |
 | Categoría | `[data-testid="catalog-select-dropdown-input"]` + `#catalog-search-input`, primera opción |
-| Marca | Se conserva la sugerencia de Vinted solo si coincide; si no, `[data-testid="brand-select-dropdown-input"]` + `#brand-search-input`, primera opción. Sin marca en la caption se busca siempre `Vintage Dressing` |
+| Marca | Se conserva la sugerencia de Vinted solo si coincide; si no, `[data-testid="brand-select-dropdown-input"]` + `#brand-search-input`, primera opción. Sin marca en la caption se abre el desplegable y se recorren las opciones `[data-testid="brand-select-dropdown-content"] [role="radio"][id^="brand-"]` con scroll por JavaScript hasta encontrar `Vintage Dressing` (texto normalizado en minúsculas); el buscador no la ofrece |
 | Color | `[data-testid="color-select-dropdown-input"]`; primera sugerencia o primer color de la lista |
 | Estado | `#condition-2` («Muy bueno») |
 | Talla | `[data-testid="category-size-single-grid-input"]` + opciones `[data-testid="category-size-single-grid-content"] [role="checkbox"]` (Vinted ofrece pares como `W34 | ES 44`) |
