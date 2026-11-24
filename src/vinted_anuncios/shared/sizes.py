@@ -10,6 +10,7 @@ SIZE_KINDS: frozenset[str] = frozenset({"pants", "top"})
 # Límites superiores de cada rango, medidos sobre el ancho plano en centímetros.
 # Pantalones: cada W ocupa 2,54 cm de ancho plano (2 pulgadas de cintura).
 _PANTS_RANGES: tuple[tuple[float, int], ...] = (
+    (29.00, 23),
     (36.83, 28),
     (39.37, 30),
     (41.91, 32),
@@ -22,7 +23,7 @@ _PANTS_RANGES: tuple[tuple[float, int], ...] = (
     (59.69, 46),
     (62.23, 48),
 )
-_PANTS_MIN_CM = 34.29
+_PANTS_MIN_CM = 29.00
 
 _TOP_RANGES: tuple[tuple[float, str], ...] = (
     (33.0, "XXXS"),
