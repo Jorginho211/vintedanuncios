@@ -29,6 +29,12 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 | Scheduler | APScheduler: publicación `0 16 * * *`, `Europe/Madrid` configurable por `TIMEZONE`. `REPLY_CRON` se conserva pero el job de favoritos está retirado (plan 023) |
 | CLI | Typer |
 | Calidad | Ruff, mypy estricto, pytest, pre-commit (Ruff + mypy + detect-secrets), pip-audit manual |
+| Contenedores | `Dockerfile` (solo dependencias de producción) + `docker-compose.yaml` con `selenium` y `vinted` (plan 024) |
+
+El servicio `vinted` del compose arranca con `--publish --schedule` por decisión
+explícita del propietario. No cambia el principio de simulación por defecto: el
+que invoca la CLI en el host o con `docker compose run` sigue necesitando pasar
+`--publish` para escribir en Vinted.
 
 ## 4. Contrato de datos
 
@@ -100,6 +106,8 @@ sessions/<Cuenta>/                    (perfil Firefox in situ; ignorado por Git)
 ## 6. Seguridad
 
 - Selenium/VNC publicados solo en `127.0.0.1`.
+- En Docker, `Data/`, `sessions/` y `logs/` se comparten con el host mediante
+  volúmenes; `.env`, datos y perfiles quedan fuera del contexto de build.
 - Los perfiles de `sessions/` se usan in situ con `-profile` sobre el volumen
   montado: nunca se envían como ZIP a un perfil temporal que se pierde al cerrar.
 - `Data/` excluido de Git; solo `Data/.gitkeep` y los tres `*.example` versionados.

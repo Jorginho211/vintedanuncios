@@ -37,6 +37,68 @@ respuesta: no lee `config.json` ni `description.txt`. Si no hay carpetas de cuen
 avisa y termina con código 0. Si la plantilla falta o está vacía, termina con
 código 1.
 
+## Uso con Docker
+
+En la máquina de instalación solo hace falta Docker con el plugin Compose. Antes
+de arrancar, crea los directorios compartidos y copia las plantillas de `Data/`:
+
+```bash
+mkdir -p Data sessions logs
+cp Data/config.json.example Data/config.json
+cp Data/description.txt.example Data/description.txt
+cp Data/reply_added_favorites.txt.example Data/reply_added_favorites.txt
+cp .env.example .env   # opcional: TIMEZONE, pausas, esperas...
+```
+
+`logs/` debe existir en el host: si lo crea Compose automáticamente queda de
+`root` y el usuario del contenedor no podría escribir `vinted.log`.
+
+El compose define dos servicios:
+
+- `selenium`: Firefox remoto y noVNC, publicados solo en `127.0.0.1:4444` y
+  `127.0.0.1:7900`. Tiene un healthcheck sobre `/status`.
+- `vinted`: el scheduler, arranca como `vinted --publish --schedule` (decisión
+  explícita del propietario, plan 024). Se levanta con `docker compose up -d`
+  y se reinicia automáticamente.
+
+Para ejecutar cualquier comando de la CLI en el mismo entorno:
+
+```bash
+docker compose build
+docker compose run --rm vinted --dry-run
+docker compose run --rm vinted publish --dry-run
+docker compose run --rm vinted reply --dry-run
+docker compose run --rm -it vinted check-session CuentaA
+docker compose logs -f vinted
+```
+
+El primer `vinted` es el nombre del servicio; la imagen ya tiene `vinted` como
+`ENTRYPOINT`, por eso los argumentos se pasan directamente. `-it` hace falta en
+`check-session` porque el comando espera a que pulses Enter. Para abrir una
+shell: `docker compose run --rm --entrypoint /bin/bash vinted -c 'bash'`
+(si no se pasa `-c`, Compose añade los argumentos del scheduler).
+
+Se comparte el contenido con el host:
+
+| Host | Contenedor | Uso |
+|---|---|---|
+| `./Data` | `/Data` | lectura/escritura en la app, solo lectura en Selenium |
+| `./sessions` | `/sessions` | perfiles de Firefox, lectura/escritura en ambos |
+| `./logs` | `/app/logs` | `vinted.log` de la app |
+
+Dentro de Compose se fuerzan `SELENIUM_URL=http://selenium:4444`, `DATA_DIR=/Data`,
+`SELENIUM_DATA_DIR=/Data`, `PROFILES_DIR=/sessions` y
+`SELENIUM_PROFILES_DIR=/sessions`; el resto de variables se leen de `.env` (si
+existe). El usuario de la app es `${UID:-1000}:${GID:-1000}` del host; Selenium
+conserva el usuario `1000:1000` de la configuración anterior.
+
+Para arrancar solo el grid y comprobarlo:
+
+```bash
+docker compose up -d selenium
+curl http://127.0.0.1:4444/status
+```
+
 Las fotos deben estar en **JPEG, PNG o GIF**. Vinted rechaza `.HEIC`/`.HEIF`
 con un diálogo de error crítico; convierte las fotos antes de ponerlas en la
 carpeta del anuncio. El título se construye como `<Marca> <Modelo> <Titulo>`,
@@ -75,7 +137,8 @@ Para dejar programada la publicación a las 16:00 de `Europe/Madrid` con
 `--publish`:
 
 ```bash
-poetry run vinted --publish --schedule
+poetry run vinted --publish --schedule      # en el host
+docker compose up -d vinted                 # en contenedor (arranca con --publish --schedule)
 ```
 
 El job de favoritos está retirado temporalmente (plan 023): `--schedule` registra
@@ -108,8 +171,12 @@ Para comprobar a mano si sigues iniciado en Vinted con un perfil guardado, indic
 el nombre de la carpeta dentro de `sessions/` (por ejemplo `sessions/CuentaA`):
 
 ```bash
+# En el host:
 docker compose up -d
 poetry run vinted check-session CuentaA
+
+# O íntegramente en Docker:
+docker compose run --rm -it vinted check-session CuentaA
 ```
 
 El comando abre `https://www.vinted.es` en el Firefox del contenedor. Mira la
@@ -120,9 +187,9 @@ Este comando solo navega: no publica, no responde y no inicia sesión por ti.
 Firefox usa `sessions/<Cuenta>` **in situ** (`-profile` sobre el volumen
 `./sessions:/sessions`), no una copia temporal: el login y las cookies que hagas
 en VNC se conservan al pulsar Enter y sirven para la siguiente ejecución. La
-carpeta debe ser escribible por el usuario `seluser` del contenedor (uid 1200);
-el factory la crea con permisos `777` si aún no existe, y avisa si ya existe sin
-permiso de escritura para otros usuarios. El grid mantiene la sesión viva 2
+carpeta debe ser escribible por el usuario del contenedor (uid 1000, según
+`docker-compose.yaml`); el factory la crea con permisos `777` si aún no existe, y
+avisa si ya existe sin permiso de escritura para otros usuarios. El grid mantiene la sesión viva 2
 horas (`SE_NODE_SESSION_TIMEOUT=7200`) para dar tiempo a iniciar sesión. Tras
 cambiar `docker-compose.yaml`, ejecuta `docker compose up -d` para recrear el
 contenedor.

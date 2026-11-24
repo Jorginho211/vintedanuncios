@@ -151,11 +151,21 @@ Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
   perfil y geckodriver lo despliega en `/tmp/rust_mozprofile...`, que se borra al
   cerrar. geckodriver elige el puerto de Marionette leyendo `MarionetteActivePort`
   del perfil, así que no hace falta fijar `--marionette-port`. La carpeta se crea
-  con permisos `777` para el usuario `seluser` (uid 1200) del contenedor.
+  con permisos `777` para el usuario del contenedor (uid 1000 en
+  `docker-compose.yaml`).
 - **Rutas de fotos:** `DATA_DIR` es la ruta del host y `SELENIUM_DATA_DIR` la del
   contenedor. El publisher traduce cada foto a `/Data/<Cuenta>/...` antes de
-  `send_keys`. `docker-compose.yaml` monta `./Data:/Data:ro` y fija
-  `SE_NODE_SESSION_TIMEOUT=1800`.
+  `send_keys`. `docker-compose.yaml` monta `./Data:/Data:ro` en Selenium y
+  `./Data:/Data:rw` en la app (que borra carpetas de anuncio), y fija
+  `SE_NODE_SESSION_TIMEOUT=7200`.
+- **Despliegue en contenedores (plan 024):** además de `selenium`, el compose
+  define el servicio `vinted` con `ENTRYPOINT=vinted`. Arranca con
+  `--publish --schedule` por decisión explícita del propietario y comparte
+  `./Data`, `./sessions` y `./logs` con el host. Los comandos sueltos se ejecutan
+  con `docker compose run --rm vinted <args>`; la imagen instala solo
+  dependencias de producción y no incluye las herramientas de desarrollo.
+  Dentro de la red de Compose se fuerza `SELENIUM_URL=http://selenium:4444` y
+  las rutas `/Data` y `/sessions`; el resto de parámetros se leen de `.env`.
 - **Verificación manual de sesión:** `check-session` abre el home con el perfil
   indicado y deja que el propietario compruebe el login por VNC; no hay detección
   automática ni escritura en Vinted.
