@@ -9,7 +9,7 @@ from .query import (
     UNSUPPORTED_IMAGE_SUFFIXES,
     ScanError,
     ScanListings,
-    caption_from_images,
+    caption_and_image_from_images,
     form_category_from,
     subdirectories,
 )
@@ -33,14 +33,17 @@ def handle(query: ScanListings) -> ScanResult:
         for category_dir in subdirectories(account_dir):
             for folder in subdirectories(category_dir):
                 try:
-                    images = tuple(
+                    images_by_name = tuple(
                         sorted(
-                            item
-                            for item in folder.iterdir()
-                            if item.is_file() and item.suffix.lower() in IMAGE_SUFFIXES
+                            (
+                                item
+                                for item in folder.iterdir()
+                                if item.is_file() and item.suffix.lower() in IMAGE_SUFFIXES
+                            ),
+                            key=lambda item: item.name,
                         )
                     )
-                    if not images:
+                    if not images_by_name:
                         unsupported = sorted(
                             item.name
                             for item in folder.iterdir()
@@ -53,7 +56,11 @@ def handle(query: ScanListings) -> ScanResult:
                             )
                         raise ScanError("la carpeta no contiene imágenes")
 
-                    caption = caption_from_images(images)
+                    caption, caption_image = caption_and_image_from_images(images_by_name)
+                    images = (
+                        caption_image,
+                        *(image for image in images_by_name if image != caption_image),
+                    )
                     config_category = category_dir.name
                     size = size_for(size_kind_for(query.config, config_category), caption.width_cm)
                     listings.append(
