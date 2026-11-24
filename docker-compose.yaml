@@ -1,3 +1,29 @@
+x-app: &app
+  build: .
+  image: vinted-anuncios:local
+  # Mismo uid:gid que el host para poder escribir en los volúmenes compartidos.
+  user: "${UID:-1000}:${GID:-1000}"
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    HOME: /tmp
+    # Dentro de la red de Compose el grid no está en 127.0.0.1.
+    SELENIUM_URL: http://selenium:4444
+    DATA_DIR: /Data
+    SELENIUM_DATA_DIR: /Data
+    PROFILES_DIR: /sessions
+    SELENIUM_PROFILES_DIR: /sessions
+  volumes:
+    - ./Data:/Data:rw
+    - ./sessions:/sessions:rw
+    - ./logs:/app/logs:rw
+  stdin_open: true
+  tty: true
+  depends_on:
+    selenium:
+      condition: service_healthy
+
 services:
   selenium:
     image: selenium/standalone-firefox:111.0.1-20261120
@@ -5,7 +31,7 @@ services:
     user: "1000:1000"
     shm_size: 1gb
     tmpfs:
-      - /var/log/supervisor:uid=1000,gid=1000,mode=1777 
+      - /var/log/supervisor:uid=1000,gid=1000,mode=1777
     environment:
       - SE_NODE_MAX_SESSIONS=2
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
@@ -22,4 +48,16 @@ services:
     volumes:
       - ./sessions:/sessions:rw
       - ./Data:/Data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:4444/status | grep -q 'ready.*true' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  vinted:
+    <<: *app
+    # Autorizado explícitamente por el propietario (plan 024).
+    command: ["--publish", "--schedule"]
     restart: unless-stopped
