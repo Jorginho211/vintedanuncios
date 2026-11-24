@@ -100,6 +100,7 @@ con código 0.
 | `DATA_DIR` | `Data` |
 | `SELENIUM_DATA_DIR` | `/Data` |
 | `PROFILES_DIR` | `sessions` |
+| `SELENIUM_PROFILES_DIR` | `/sessions` |
 | `SELENIUM_URL` | `http://127.0.0.1:4444` |
 | `SELENIUM_WAIT_SECONDS` | `15` |
 | `SELENIUM_ACTION_DELAY_MIN` | `1.0` |
@@ -139,6 +140,13 @@ Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
 - **Sesión perezosa:** el driver se crea solo para cuentas con trabajo. Tras la
   última publicación de la cuenta se cierra; la fase de favoritos abre su propia
   sesión. `Runtime.release(account)` lo garantiza con `try/finally`.
+- **Perfil persistente:** el driver pasa `-profile <ruta del contenedor>` en
+  `moz:firefoxOptions.args`; geckodriver usa `sessions/<Cuenta>` in situ a través
+  del volumen montado. No se usa `options.profile` porque Selenium comprime el
+  perfil y geckodriver lo despliega en `/tmp/rust_mozprofile...`, que se borra al
+  cerrar. geckodriver elige el puerto de Marionette leyendo `MarionetteActivePort`
+  del perfil, así que no hace falta fijar `--marionette-port`. La carpeta se crea
+  con permisos `777` para el usuario `seluser` (uid 1200) del contenedor.
 - **Rutas de fotos:** `DATA_DIR` es la ruta del host y `SELENIUM_DATA_DIR` la del
   contenedor. El publisher traduce cada foto a `/Data/<Cuenta>/...` antes de
   `send_keys`. `docker-compose.yaml` monta `./Data:/Data:ro` y fija
@@ -189,7 +197,8 @@ la talla calculada y sus selectores se validaron con `--simulate-send`.
 - Los selectores de favoritos siguen siendo provisionales: validar la ubicación
   de la alerta «ha marcado como favorito tu artículo» con `docs/checklist.md`.
 - La caption se lee del nombre del archivo con `pathlib.stem`; no se usan metadatos ni librerías externas.
-- El perfil de Firefox en `sessions/<Cuenta>/` debe verificarse entre ejecuciones
-  con `vinted check-session <Cuenta>` (plan 014).
+- El perfil de Firefox en `sessions/<Cuenta>/` se comprueba entre ejecuciones con
+  `vinted check-session <Cuenta>` (planes 014 y 020). Si Vinted expulsa la sesión
+  por seguridad, hay que volver a iniciarla en VNC; el código no detecta el login.
 - Si Vinted cambia el DOM, `--simulate-send` es la forma segura de detectarlo
   antes de publicar.

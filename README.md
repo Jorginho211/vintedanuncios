@@ -110,6 +110,16 @@ pantalla en `http://127.0.0.1:7900` y pulsa Enter en la terminal para cerrar el
 navegador. Si la carpeta de sesión no existe, termina con un error y código 1.
 Este comando solo navega: no publica, no responde y no inicia sesión por ti.
 
+Firefox usa `sessions/<Cuenta>` **in situ** (`-profile` sobre el volumen
+`./sessions:/sessions`), no una copia temporal: el login y las cookies que hagas
+en VNC se conservan al pulsar Enter y sirven para la siguiente ejecución. La
+carpeta debe ser escribible por el usuario `seluser` del contenedor (uid 1200);
+el factory la crea con permisos `777` si aún no existe, y avisa si ya existe sin
+permiso de escritura para otros usuarios. El grid mantiene la sesión viva 2
+horas (`SE_NODE_SESSION_TIMEOUT=7200`) para dar tiempo a iniciar sesión. Tras
+cambiar `docker-compose.yaml`, ejecuta `docker compose up -d` para recrear el
+contenedor.
+
 ## Variables de entorno
 
 Todas se leen una sola vez al arrancar y se validan en `shared/settings.py`.
@@ -120,7 +130,8 @@ documenta con sus valores por defecto:
 |---|---|---|
 | `DATA_DIR` | `Data` | Árbol de anuncios en el host |
 | `SELENIUM_DATA_DIR` | `/Data` | Ruta de `Data/` dentro del contenedor |
-| `PROFILES_DIR` | `sessions` | Perfiles de Firefox por cuenta |
+| `PROFILES_DIR` | `sessions` | Perfiles de Firefox por cuenta en el host |
+| `SELENIUM_PROFILES_DIR` | `/sessions` | Misma carpeta dentro del contenedor |
 | `SELENIUM_URL` | `http://127.0.0.1:4444` | Grid de Selenium |
 | `SELENIUM_WAIT_SECONDS` | `15` | Espera máxima del navegador |
 | `SELENIUM_ACTION_DELAY_MIN` | `1.0` | Pausa mínima entre acciones de Selenium |

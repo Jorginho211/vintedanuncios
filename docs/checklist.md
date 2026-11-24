@@ -23,6 +23,10 @@ Antes de dar por bueno un cambio:
    - `poetry run vinted check-session CuentaA` con `docker compose up -d`.
    - Ver en `http://127.0.0.1:7900` que cargue `https://www.vinted.es` y que
      la sesión sigue iniciada; pulsar Enter y confirmar que el driver se cierra.
+   - Repetir `check-session` con la misma cuenta y confirmar que sigue iniciada:
+     el perfil se usa in situ, no se copia a `/tmp/rust_mozprofile...`.
+   - Si se hizo login en VNC, comprobar que `cookies.sqlite` de `sessions/<Cuenta>/`
+     cambia de fecha tras pulsar Enter.
    - Comprobar que un nombre de sesión inexistente termina con código 1.
 8. Si el cambio afecta a publicación:
    - Probar con **una** cuenta y **un** anuncio cuyas fotos sean JPEG/PNG/GIF.

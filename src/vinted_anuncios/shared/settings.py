@@ -19,6 +19,7 @@ class Settings:
     data_dir: Path
     selenium_data_dir: Path
     profiles_dir: Path
+    selenium_profiles_dir: Path
     selenium_url: str
     timezone: ZoneInfo
     reply_cron: str
@@ -74,6 +75,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         data_dir=Path(env.get("DATA_DIR", "Data")),
         selenium_data_dir=Path(env.get("SELENIUM_DATA_DIR", "/Data")),
         profiles_dir=Path(env.get("PROFILES_DIR", "sessions")),
+        selenium_profiles_dir=Path(env.get("SELENIUM_PROFILES_DIR", "/sessions")),
         selenium_url=_check_url(env.get("SELENIUM_URL", "http://127.0.0.1:4444")),
         timezone=timezone,
         reply_cron=reply_cron,

@@ -12,6 +12,7 @@ def test_load_settings_usa_los_defaults() -> None:
     assert settings.data_dir == Path("Data")
     assert settings.selenium_data_dir == Path("/Data")
     assert settings.profiles_dir == Path("sessions")
+    assert settings.selenium_profiles_dir == Path("/sessions")
     assert settings.selenium_url == "http://127.0.0.1:4444"
     assert str(settings.timezone) == "Europe/Madrid"
     assert settings.reply_cron == "*/15 * * * *"
@@ -29,6 +30,7 @@ def test_load_settings_lee_los_nombres_ingleses() -> None:
             "DATA_DIR": "/tmp/datos",
             "SELENIUM_DATA_DIR": "/mnt/datos",
             "PROFILES_DIR": "/tmp/perfiles",
+            "SELENIUM_PROFILES_DIR": "/mnt/perfiles",
             "SELENIUM_URL": "http://127.0.0.1:5555",
             "SELENIUM_WAIT_SECONDS": "7",
             "SELENIUM_ACTION_DELAY_MIN": "1",
@@ -42,6 +44,7 @@ def test_load_settings_lee_los_nombres_ingleses() -> None:
     assert settings.data_dir == Path("/tmp/datos")
     assert settings.selenium_data_dir == Path("/mnt/datos")
     assert settings.profiles_dir == Path("/tmp/perfiles")
+    assert settings.selenium_profiles_dir == Path("/mnt/perfiles")
     assert settings.selenium_url == "http://127.0.0.1:5555"
     assert settings.wait_seconds == 7.0
     assert settings.action_delay_min == 1.0

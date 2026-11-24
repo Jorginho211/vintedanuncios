@@ -9,7 +9,8 @@ services:
     environment:
       - SE_NODE_MAX_SESSIONS=2
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
-      - SE_NODE_SESSION_TIMEOUT=1800
+      # Margen suficiente para iniciar sesión a mano en check-session por VNC.
+      - SE_NODE_SESSION_TIMEOUT=7200
       - HOME=/tmp
       - XDG_CONFIG_HOME=/tmp/.config
       - XDG_CACHE_HOME=/tmp/.cache

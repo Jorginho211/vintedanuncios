@@ -75,7 +75,7 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 
 ```
 Data/<Cuenta>/<Categoría>/<Anuncio>/  (solo fotos JPEG/PNG/GIF)
-sessions/<Cuenta>/                    (perfil Firefox; contenido ignorado por Git)
+sessions/<Cuenta>/                    (perfil Firefox in situ; ignorado por Git)
 ```
 
 ## 5. Estándares
@@ -93,6 +93,8 @@ sessions/<Cuenta>/                    (perfil Firefox; contenido ignorado por Gi
 ## 6. Seguridad
 
 - Selenium/VNC publicados solo en `127.0.0.1`.
+- Los perfiles de `sessions/` se usan in situ con `-profile` sobre el volumen
+  montado: nunca se envían como ZIP a un perfil temporal que se pierde al cerrar.
 - `Data/` excluido de Git; solo `Data/.gitkeep` y los tres `*.example` versionados.
 - `sessions/` excluido de Git; solo `sessions/.gitkeep` versionado.
 - Escaneo de secretos en pre-commit.
@@ -103,7 +105,7 @@ sessions/<Cuenta>/                    (perfil Firefox; contenido ignorado por Gi
 ## 7. Pendientes documentados
 
 - Confirmar la ubicación exacta de la alerta *"ha marcado como favorito tu artículo"*.
-- Completar el spike de persistencia del perfil Firefox (plan 002).
+- Verificar manualmente que el perfil conserva el login entre dos sesiones (plan 020).
 
 ## 8. Proceso de cambio
 
