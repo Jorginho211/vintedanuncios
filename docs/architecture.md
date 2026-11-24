@@ -69,6 +69,9 @@ título. Solo `Pantalones Anchos` usa `pants`.
 Título: `<Marca> <Modelo> <Titulo>`; `Titulo` se toma de `config.json` con la
 categoría completa y `marca.lower()` (o `default`). La marca se usa también en
 el campo «Marca»; Vinted no tiene campo de modelo y las medidas no se envían.
+Si la caption no incluye marca, el publicador pone `Vintage Dressing` en el
+campo «Marca» (incluso si Vinted sugirió otra), pero no la añade al título:
+`Caption.brand` sigue siendo `None` y se usa la variante `default`.
 
 Talla: `width_cm` es el ancho plano (media vuelta). `shared/sizes.py` aplica
 tablas deterministas por rangos `[mín, máx)`: pantalones dan `WXX | ES XX` con
@@ -169,7 +172,7 @@ Validados con volcados de HTML de CuentaA (`/tmp/opencode/vinted_*.html`, plan 0
 | Fotos | `[data-testid="add-photos-input"]` (varios archivos separados por salto de línea) |
 | Título / descripción / precio | `#title`, `#description`, `#price` |
 | Categoría | `[data-testid="catalog-select-dropdown-input"]` + `#catalog-search-input`, primera opción |
-| Marca | Si Vinted ya sugiere la marca se conserva; si no, `[data-testid="brand-select-dropdown-input"]` + `#brand-search-input`, primera opción |
+| Marca | Se conserva la sugerencia de Vinted solo si coincide; si no, `[data-testid="brand-select-dropdown-input"]` + `#brand-search-input`, primera opción. Sin marca en la caption se busca siempre `Vintage Dressing` |
 | Color | `[data-testid="color-select-dropdown-input"]`; primera sugerencia o primer color de la lista |
 | Estado | `#condition-2` («Muy bueno») |
 | Talla | `[data-testid="category-size-single-grid-input"]` + opciones `[data-testid="category-size-single-grid-content"] [role="checkbox"]` (Vinted ofrece pares como `W34 | ES 44`) |

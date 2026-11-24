@@ -39,6 +39,8 @@ Las fotos deben estar en **JPEG, PNG o GIF**. Vinted rechaza `.HEIC`/`.HEIF`
 con un diálogo de error crítico; convierte las fotos antes de ponerlas en la
 carpeta del anuncio. El título se construye como `<Marca> <Modelo> <Titulo>`,
 donde `Titulo` sale de `config.json` (categoría completa y variante de marca).
+Si la caption no lleva marca, el formulario usa `Vintage Dressing` en el campo
+«Marca»; esa marca no se añade al título.
 
 La simulación sin navegador no necesita Docker:
 

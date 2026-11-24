@@ -34,6 +34,9 @@ from .vinted_wait import (
     wait_until_gone,
 )
 
+# Marca usada en el formulario cuando la caption no especifica ninguna.
+DEFAULT_BRAND = "Vintage Dressing"
+
 
 class VintedListingPublisher:
     """Rellena el formulario real de Vinted; ``submit=False`` solo lo simula."""
@@ -66,8 +69,7 @@ class VintedListingPublisher:
             self._upload_photos(listing)
             self._fill_text(listing)
             self._choose_category(listing.form_category)
-            if listing.caption.brand:
-                self._ensure_brand(listing.caption.brand)
+            self._ensure_brand(listing.caption.brand or DEFAULT_BRAND)
             self._choose_size(listing.size)
             self._choose_color()
             self._choose_condition()

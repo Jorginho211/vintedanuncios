@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from vinted_anuncios.adapters import vinted_publisher
-from vinted_anuncios.adapters.vinted_publisher import VintedListingPublisher
+from vinted_anuncios.adapters.vinted_publisher import DEFAULT_BRAND, VintedListingPublisher
+from vinted_anuncios.shared.models import Caption, Listing
 from vinted_anuncios.shared.settings import load_settings
 
 
@@ -24,6 +26,20 @@ def _publisher(
     return publisher, calls
 
 
+def _listing(brand: str | None) -> Listing:
+    return Listing(
+        account="Cuenta A",
+        config_category="Cortavientos.General",
+        form_category="Cortavientos",
+        folder=Path("Data/Cuenta A/Cortavientos.General/Anuncio 1"),
+        images=(),
+        caption=Caption(price=25.0, width_cm=40.0, length_cm=30.0, brand=brand, model=None),
+        title="Título por defecto",
+        description="Descripción",
+        size="S",
+    )
+
+
 def test_conserva_la_marca_que_vinted_ya_sugirio(monkeypatch: pytest.MonkeyPatch) -> None:
     publisher, calls = _publisher(monkeypatch, "Levi's")
 
@@ -39,6 +55,48 @@ def test_cambia_la_marca_si_la_sugerencia_no_coincide(monkeypatch: pytest.Monkey
 
     assert len(calls) == 1
     assert calls[0]["value"] == "Levis"
+
+
+def test_sustituye_la_sugerencia_de_vinted_por_la_marca_por_defecto(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    publisher, calls = _publisher(monkeypatch, "Nike")
+
+    publisher._ensure_brand(DEFAULT_BRAND)
+
+    assert len(calls) == 1
+    assert calls[0]["value"] == "Vintage Dressing"
+
+
+@pytest.mark.parametrize(
+    ("brand", "expected"),
+    [(None, "Vintage Dressing"), ("Levis", "Levis")],
+)
+def test_el_campo_marca_usa_el_fallback_solo_si_falta_la_marca(
+    monkeypatch: pytest.MonkeyPatch, brand: str | None, expected: str
+) -> None:
+    publisher = VintedListingPublisher(
+        MagicMock(), load_settings({}), logging.getLogger("test"), submit=False
+    )
+    for name in (
+        "_open_form",
+        "_upload_photos",
+        "_fill_text",
+        "_choose_category",
+        "_choose_size",
+        "_choose_color",
+        "_choose_condition",
+        "_choose_shipping",
+        "_leave_form",
+    ):
+        monkeypatch.setattr(publisher, name, lambda *_args, **_kwargs: None)
+    brands: list[str] = []
+    monkeypatch.setattr(publisher, "_ensure_brand", brands.append)
+
+    result = publisher.publish(_listing(brand))
+
+    assert result.ok
+    assert brands == [expected]
 
 
 def test_elige_la_primera_opcion_de_talla_presente_en_el_dom(

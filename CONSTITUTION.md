@@ -58,6 +58,10 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
   avisa y termina con código 0.
 - `Data/config.json`: una clave por categoría, con `default`, variantes opcionales por marca (`levis`) y la clave reservada `size` (`pants` o `top`) que elige la tabla de tallas. Falta o valor inválido detiene la ejecución.
 - Selección del título: `config.json` usa el nombre de carpeta de categoría completo (puntos literales) + `marca.lower()`; si no hay variante, `default`. El título enviado es `<Marca> <Modelo> <Titulo>`. La marca también se elige en el campo «Marca»; el modelo no existe como campo en Vinted y solo va en el título. Las medidas no se envían.
+- Si la caption no tiene marca, el campo «Marca» del formulario se rellena con
+  `Vintage Dressing` (constante en el publicador). Ese valor no forma parte de
+  la caption ni del título: sin marca, el título es `<Modelo> <Titulo>` con la
+  variante `default`. La sugerencia de marca de Vinted se sobrescribe en ese caso.
 - El formulario usa la categoría antes del primer punto (`Cortavientos.General` → `Cortavientos`).
 - Talla: `width_cm` es el ancho plano de la prenda (media vuelta). La tabla `pants` produce `WXX | ES XX` con `ES = W + 10`; la tabla `top` produce de `XXXS` a `8XL`. Solo `Pantalones Anchos` usa `pants`. Medidas fuera de tabla son error de escaneo. La misma talla se sustituye en `{{TALLA}}` y se busca en el campo «Talla» de Vinted: se elige la primera opción del DOM que contenga `WXX` o `ES XX`; si no existe, no se publica.
 - `Data/description.txt`: descripción común a todas las categorías. Si aparece `{{TALLA}}`, se sustituye por la talla calculada.

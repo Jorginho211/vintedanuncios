@@ -55,6 +55,18 @@ def test_scan_separa_categoria_de_config_y_de_formulario(tmp_path: Path) -> None
     assert listing.caption.price == 25.0
 
 
+def test_scan_sin_marca_no_anade_la_marca_por_defecto_al_titulo(tmp_path: Path) -> None:
+    _prepare(tmp_path, image_name="25;40x30.JPG")
+
+    result = _scan(tmp_path)
+
+    assert result.errors == ()
+    assert len(result.listings) == 1
+    listing = result.listings[0]
+    assert listing.caption.brand is None
+    assert listing.title == "Título por defecto"
+
+
 def test_scan_sin_caption_en_el_nombre_registra_error(tmp_path: Path) -> None:
     _prepare(tmp_path, image_name="foto.JPG")
     result = _scan(tmp_path)
