@@ -1,6 +1,9 @@
 # Plan 015 — Barridos independientes de publicación y favoritos
 
-**Estado:** completado.
+**Estado:** parcialmente retirado (plan 023). Se conservan `vinted publish` y
+`vinted reply` como acciones manuales, pero `sweep` ya no responde favoritos y
+el scheduler registra sólo el job de publicación, sin bloqueo compartido. El
+resto del documento describe la decisión original.
 
 **Objetivo:** separar la publicación diaria de anuncios de la comprobación periódica
 de favoritos, para poder responder antes sin publicar de nuevo. Las cuentas se

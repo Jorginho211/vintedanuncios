@@ -109,6 +109,13 @@ def test_validate_data_dir_sin_archivos(tmp_path: Path) -> None:
         validate_data_dir(tmp_path)
 
 
+def test_validate_data_dir_no_exige_plantilla_de_respuesta(tmp_path: Path) -> None:
+    (tmp_path / "config.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "description.txt").write_text("texto", encoding="utf-8")
+
+    validate_data_dir(tmp_path)
+
+
 def test_validate_reply_data_dir_acepta_arbol_de_cuentas(tmp_path: Path) -> None:
     (tmp_path / "CuentaA").mkdir()
     validate_reply_data_dir(tmp_path)

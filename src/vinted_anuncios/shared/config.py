@@ -12,16 +12,16 @@ class ConfigError(ValueError):
     """La configuración del proyecto es inválida o está incompleta."""
 
 
-# Archivo obligatorio -> plantilla que se debe copiar para crearlo.
+# Archivos obligatorios para publicar -> plantilla que se debe copiar para crearlos.
+# La plantilla de respuesta se valida aparte, sólo para el comando `reply`.
 REQUIRED_FILES = {
     "config.json": "config.json.example",
     "description.txt": "description.txt.example",
-    "reply_added_favorites.txt": "reply_added_favorites.txt.example",
 }
 
 
 def validate_data_dir(data_dir: Path) -> None:
-    """Impide trabajar si falta alguno de los archivos de configuración."""
+    """Impide publicar si falta algún archivo de configuración del barrido."""
     missing = [name for name in REQUIRED_FILES if not (data_dir / name).is_file()]
     if missing:
         details = ", ".join(f"{name} (copia {data_dir / REQUIRED_FILES[name]})" for name in missing)

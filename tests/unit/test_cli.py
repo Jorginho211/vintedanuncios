@@ -80,6 +80,8 @@ def test_subcommand_sweep_acepta_simulate_send(
     _patch_common(monkeypatch, tmp_path)
     calls: list[tuple[str, object]] = []
     monkeypatch.setattr(cli_module, "run_sweep", _recorder("sweep", calls))
+    monkeypatch.setattr(cli_module, "run_publish", _forbidden)
+    monkeypatch.setattr(cli_module, "run_reply", _forbidden)
 
     result = CliRunner().invoke(cli_module.app, ["sweep", "--simulate-send"])
 
@@ -108,7 +110,7 @@ def test_los_modos_son_mutuamente_exclusivos(
     assert "mutuamente exclusivos" in result.output
 
 
-def test_schedule_arranca_el_scheduler_con_los_dos_jobs(
+def test_schedule_arranca_el_scheduler_con_el_job_de_publicacion(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _patch_common(monkeypatch, tmp_path)

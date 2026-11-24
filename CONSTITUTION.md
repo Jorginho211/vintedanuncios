@@ -2,13 +2,13 @@
 
 ## 1. Propósito
 
-Herramienta **local** y de uso personal que, desde un árbol de carpetas, publica anuncios en Vinted y responde una sola vez al primer mensaje del comprador cuando recibe una alerta de favorito.
+Herramienta **local** y de uso personal que, desde un árbol de carpetas, publica anuncios en Vinted. La respuesta al primer mensaje del comprador tras una alerta de favorito existe como comando manual (`vinted reply`), retirado temporalmente de barridos y del scheduler por no estar completo ni probado (plan 023).
 
 No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 
 ## 2. Principios rectores
 
-1. **Simulación por defecto.** Ninguna acción escribe en Vinted salvo que se pase explícitamente `--publish`. Los modos `--dry-run`, `--simulate-send` y `--publish` son mutuamente exclusivos; `--simulate-send` recorre el formulario real sin pulsar «Subir» y simula las respuestas a favoritos.
+1. **Simulación por defecto.** Ninguna acción escribe en Vinted salvo que se pase explícitamente `--publish`. Los modos `--dry-run`, `--simulate-send` y `--publish` son mutuamente exclusivos; `--simulate-send` recorre el formulario real sin pulsar «Subir».
 2. **El sistema de archivos es la fuente de verdad.** Una carpeta de anuncio existe = anuncio pendiente. Se borra tras la publicación confirmada o al terminar `--simulate-send`, siempre con guarda de ruta: solo `Data/<Cuenta>/<Categoría>/<Anuncio>/`.
 3. **Separación de capas.** `shared/` contiene datos y contratos; los handlers de
    `features/` contienen los casos de uso; Selenium y el filesystem viven aislados
@@ -26,7 +26,7 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 | Entorno y dependencias | Poetry (`pyproject.toml`, `poetry.lock`) |
 | Automatización | Selenium + Firefox (Docker, `docker-compose.yaml`) |
 | Caption | Nombre del archivo de foto; solo `pathlib`, sin librerías de metadatos |
-| Scheduler | APScheduler: publicación `0 16 * * *` y favoritos `REPLY_CRON` (`*/15 * * * *`), `Europe/Madrid` configurable por `TIMEZONE` |
+| Scheduler | APScheduler: publicación `0 16 * * *`, `Europe/Madrid` configurable por `TIMEZONE`. `REPLY_CRON` se conserva pero el job de favoritos está retirado (plan 023) |
 | CLI | Typer |
 | Calidad | Ruff, mypy estricto, pytest, pre-commit (Ruff + mypy + detect-secrets), pip-audit manual |
 
@@ -51,13 +51,13 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 
 ### Configuración
 
-- Los tres archivos reales de `Data/` son obligatorios para publicar o para el
-  barrido completo. Se crean copiando `config.json.example`,
-  `description.txt.example` y `reply_added_favorites.txt.example`. Si falta alguno (o la plantilla de respuesta
-  está vacía), la ejecución se detiene con un error y código de salida 1; no se
-  escanea ni se publica. El comando `reply` solo exige el árbol de carpetas de
-  cuenta y la plantilla: no lee `config.json` ni `description.txt`; sin cuentas
-  avisa y termina con código 0.
+- `config.json` y `description.txt` son obligatorios para publicar con `vinted`
+  o `vinted sweep`; se crean copiando sus respectivos `*.example`. Si falta
+  alguno, la ejecución se detiene con error y código de salida 1; no se escanea
+  ni se publica. `reply_added_favorites.txt` no se lee en esos barridos.
+- El comando manual `reply` solo exige el árbol de carpetas de cuenta y la
+  plantilla: no lee `config.json` ni `description.txt`; sin cuentas avisa y
+  termina con código 0.
 - `Data/config.json`: una clave por categoría, con `default`, variantes opcionales por marca (`levis`) y la clave reservada `size` (`pants` o `top`) que elige la tabla de tallas. Falta o valor inválido detiene la ejecución.
 - Selección del título: `config.json` usa el nombre de carpeta de categoría completo (puntos literales) + `marca.lower()`; si no hay variante, `default`. El título enviado es `<Marca> <Modelo> <Titulo>`. La marca también se elige en el campo «Marca»; el modelo no existe como campo en Vinted y solo va en el título. Las medidas no se envían.
 - Si la caption no tiene marca, el campo «Marca» del formulario se rellena con
@@ -70,11 +70,13 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 - El formulario usa la categoría antes del primer punto (`Cortavientos.General` → `Cortavientos`).
 - Talla: `width_cm` es el ancho plano de la prenda (media vuelta). La tabla `pants` produce `WXX | ES XX` con `ES = W + 10`; la tabla `top` produce de `XXXS` a `8XL`. Solo `Pantalones Anchos` usa `pants`. Medidas fuera de tabla son error de escaneo. La misma talla se sustituye en `{{TALLA}}` y se busca en el campo «Talla» de Vinted: se elige la primera opción del DOM que contenga `WXX` o `ES XX`; si no existe, no se publica.
 - `Data/description.txt`: descripción común a todas las categorías. Si aparece `{{TALLA}}`, se sustituye por la talla calculada.
-- `Data/reply_added_favorites.txt`: plantilla global de respuesta. Si falta o está
-  vacía, la ejecución termina con error y código 1, también en el comando `reply`.
+- `Data/reply_added_favorites.txt`: plantilla global usada sólo por `vinted reply`.
+  Si falta o está vacía, ese comando termina con error y código 1.
 - Las variables de entorno se leen y validan una sola vez en `shared/settings.py`;
   `config.py` queda reservado a la configuración de dominio de `Data/`. Los nombres
-  de entorno van en inglés, igual que los identificadores de código.
+  de entorno van en inglés, igual que los identificadores de código. `REPLY_CRON`
+  se conserva validada pero está reservada e inactiva mientras el job de
+  favoritos siga retirado.
 
 ### Árbol
 
@@ -104,12 +106,12 @@ sessions/<Cuenta>/                    (perfil Firefox in situ; ignorado por Git)
 - `sessions/` excluido de Git; solo `sessions/.gitkeep` versionado.
 - Escaneo de secretos en pre-commit.
 - Logs con identificadores y fechas, nunca texto de mensajes de compradores.
-- Pausas configurables entre anuncios y entre cuentas por estabilidad.
+- Pausas configurables entre anuncios y, en `vinted reply`, entre cuentas por estabilidad.
 - Revisión manual de dependencias con `pip-audit`.
 
 ## 7. Pendientes documentados
 
-- Confirmar la ubicación exacta de la alerta *"ha marcado como favorito tu artículo"*.
+- Confirmar la ubicación exacta de la alerta *"ha marcado como favorito tu artículo"* antes de reactivar el reply automático (plan 007).
 - Verificar manualmente que el perfil conserva el login entre dos sesiones (plan 020).
 
 ## 8. Proceso de cambio

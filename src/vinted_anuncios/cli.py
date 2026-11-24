@@ -27,7 +27,7 @@ SimulateSendOption = Annotated[
     ),
 ]
 ScheduleOption = Annotated[
-    bool, typer.Option("--schedule", help="Queda vivo y ejecuta los dos jobs programados")
+    bool, typer.Option("--schedule", help="Queda vivo y ejecuta el job de publicación programado")
 ]
 
 
@@ -82,7 +82,7 @@ def main(
     simulate_send: SimulateSendOption = False,
     schedule: ScheduleOption = False,
 ) -> None:
-    """Recorre Data y aplica el barrido completo por defecto."""
+    """Recorre Data y publica los anuncios pendientes por defecto."""
     if ctx.invoked_subcommand is not None:
         return
     _execute(
@@ -133,7 +133,7 @@ def sweep_command(
     simulate_send: SimulateSendOption = False,
     schedule: ScheduleOption = False,
 ) -> None:
-    """Publica anuncios y responde favoritos, igual que `vinted` sin subcomando."""
+    """Publica anuncios pendientes, igual que `vinted` sin subcomando."""
     _execute(
         run_sweep,
         publish=publish,

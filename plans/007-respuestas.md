@@ -1,6 +1,8 @@
 # Plan 007 — Respuestas al primer mensaje
 
 **Estado:** estructura implementada; ubicación de la alerta pendiente de confirmar.
+El reply automático está retirado temporalmente del barrido y del scheduler
+(plan 023); el comando manual `vinted reply` sigue disponible.
 
 **Objetivo:** responder una sola vez a las conversaciones nuevas avisadas por favorito.
 

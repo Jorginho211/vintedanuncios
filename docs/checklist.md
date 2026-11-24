@@ -8,9 +8,11 @@ Antes de dar por bueno un cambio:
    - No se commitea si falla alguno de los tres: primero se corrige el código o
      se adaptan el test y la documentación a la decisión vigente. La suite queda
      siempre en verde.
-4. Comprobar que los tres archivos reales existen en `Data/` (copiados de los
-   `*.example`). Renombrar uno temporalmente y verificar que `vinted --dry-run`
-   termina con código 1 y un error que indica qué copiar.
+4. Comprobar que `config.json` y `description.txt` existen en `Data/` (copiados
+   de los `*.example`). Renombrar `config.json` temporalmente y verificar que
+   `vinted --dry-run` termina con código 1 y un error que indica qué copiar.
+   Para probar el reply manual, comprobar además `reply_added_favorites.txt`
+   (paso 12).
 5. `docker compose up -d` y comprobar que Selenium responde en `http://127.0.0.1:4444`.
 6. `poetry run vinted --dry-run`
    - Revisar que se listan las cuentas y categorías esperadas.
@@ -49,7 +51,7 @@ Antes de dar por bueno un cambio:
    - Usar `--publish` solo después de revisar los pasos 6 y 8.
    - Confirmar que la carpeta se borra solo tras el mensaje de éxito de Vinted;
      si el resultado es ambiguo, no se borra y no hay reintentos.
-9. Si el cambio afecta a respuestas:
+9. Si el cambio afecta al reply manual (`vinted reply`):
    - Confirmar que la plantilla existe en `Data/reply_added_favorites.txt`.
    - Verificar que solo se responde a conversaciones nuevas con la alerta acordada.
    - Comprobar que los logs no contienen texto de mensajes.
@@ -57,12 +59,15 @@ Antes de dar por bueno un cambio:
     - `poetry run vinted publish --dry-run`: publica anuncios, no responde favoritos.
     - `poetry run vinted reply --dry-run`: recorre las carpetas de cuenta, no
       escanea ni publica.
-    - `poetry run vinted sweep --dry-run`: hace ambas cosas como `vinted --dry-run`.
+    - `poetry run vinted sweep --dry-run`: publica como `vinted --dry-run`, sin
+      responder favoritos ni abrir un segundo driver por cuenta.
+    - `poetry run vinted --schedule`: con `--dry-run`, comprobar en los logs que
+      sólo se registra el job `publicacion_diaria`.
 11. Renombrar temporalmente `Data/config.json`: `vinted reply --dry-run` debe seguir
     terminando con código 0, mientras `vinted publish --dry-run` termina con código 1.
 12. Con `Data/` sin carpetas de cuenta, `vinted reply --dry-run` avisa y termina con
     código 0; sin plantilla de respuesta, termina con código 1.
 13. Revisar que `vinted --help` muestra `publish`, `reply`, `sweep` y
-    `--simulate-send`, y que `REPLY_CRON` y `SELENIUM_DATA_DIR` aparecen
-    documentadas en `.env.example`.
+    `--simulate-send`, y que `REPLY_CRON` aparece documentada como reservada en
+    `.env.example`, junto a `SELENIUM_DATA_DIR`.
 14. `pip-audit` antes de actualizar dependencias.

@@ -190,12 +190,11 @@ def test_sweep_abre_sesion_solo_para_la_cuenta_con_anuncios_y_la_cierra(
     closed: list[DriverPort] = []
     _patch_factory(monkeypatch, created, closed)
     monkeypatch.setattr(runtime_module, "VintedListingPublisher", StubVintedPublisher)
-    monkeypatch.setattr(runtime_module, "VintedFavoriteReplier", StubVintedReplier)
 
     run_sweep(_settings(tmp_path), Mode.PUBLISH, logger=LOGGER)
 
-    assert created == ["Cuenta", "Cuenta"]
-    assert len(closed) == 2
+    assert created == ["Cuenta"]
+    assert len(closed) == 1
 
 
 def test_publish_borra_carpeta_tras_confirmacion(tmp_path: Path) -> None:
@@ -230,21 +229,39 @@ def test_confirmacion_fallida_no_borra_carpeta(tmp_path: Path) -> None:
     assert (folder / IMAGE_NAME).exists()
 
 
-def test_falta_plantilla_aborta_antes_de_publicar(tmp_path: Path) -> None:
+def test_sweep_no_exige_plantilla_de_respuesta(tmp_path: Path) -> None:
     folder = _prepare(tmp_path)
     (folder.parent.parent.parent / "reply_added_favorites.txt").unlink()
+    publisher = RecordingPublisher(PublishResult(ok=True, message="publicado"))
+    runtime = FakeRuntime(publisher, FilesystemListingStore(_settings(tmp_path).data_dir))
 
-    def forbidden(*_args: object, **_kwargs: object) -> FakeRuntime:
-        raise AssertionError("No se debe crear el runtime si falta configuración")
+    run_sweep(
+        _settings(tmp_path),
+        Mode.PUBLISH,
+        logger=LOGGER,
+        runtime_factory=lambda *_args, **_kwargs: runtime,
+    )
 
-    with pytest.raises(ConfigError):
-        run_sweep(
-            _settings(tmp_path),
-            Mode.PUBLISH,
-            logger=LOGGER,
-            runtime_factory=forbidden,
-        )
-    assert (folder / IMAGE_NAME).exists()
+    assert len(publisher.listings) == 1
+    assert not folder.exists()
+
+
+def test_sweep_no_responde_favoritos(tmp_path: Path) -> None:
+    _prepare(tmp_path)
+    publisher = RecordingPublisher(PublishResult(ok=True, message="publicado"))
+    replier = RecordingReplier(ReplyResult((), ()))
+    runtime = FakeRuntime(publisher, NoOpListingStore(), replier)
+
+    run_sweep(
+        _settings(tmp_path),
+        Mode.PUBLISH,
+        logger=LOGGER,
+        runtime_factory=lambda *_args, **_kwargs: runtime,
+    )
+
+    assert len(publisher.listings) == 1
+    assert replier.templates == []
+    assert runtime.replier_accounts == []
 
 
 def test_simulacion_no_borra_con_store_inerte(tmp_path: Path) -> None:

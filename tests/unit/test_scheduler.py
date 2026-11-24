@@ -9,7 +9,7 @@ import pytest
 
 from vinted_anuncios import scheduler as scheduler_module
 from vinted_anuncios.shared.models import Mode
-from vinted_anuncios.shared.settings import SettingsError, load_settings
+from vinted_anuncios.shared.settings import load_settings
 
 LOGGER = logging.getLogger("test-scheduler")
 
@@ -46,58 +46,36 @@ class FakeScheduler:
         self.started = True
 
 
-class LockRecorder:
-    def __init__(self) -> None:
-        self.entered = 0
-        self.exited = 0
-
-    def __enter__(self) -> None:
-        self.entered += 1
-
-    def __exit__(self, *_args: object) -> None:
-        self.exited += 1
-
-
-def test_start_registra_dos_jobs_y_usa_el_bloqueo(
+def test_start_registra_un_solo_job_de_publicacion(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fake = FakeScheduler(timezone=object())
-    lock = LockRecorder()
     monkeypatch.setattr(scheduler_module, "BlockingScheduler", lambda timezone: fake)
-    monkeypatch.setattr(scheduler_module, "Lock", lambda: lock)
 
-    calls: list[tuple[str, dict[str, object]]] = []
-    monkeypatch.setattr(
-        scheduler_module, "run_publish", lambda **kwargs: calls.append(("publish", kwargs))
-    )
-    monkeypatch.setattr(
-        scheduler_module, "run_reply", lambda **kwargs: calls.append(("reply", kwargs))
-    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(scheduler_module, "run_publish", lambda **kwargs: calls.append(kwargs))
 
     settings = load_settings({"DATA_DIR": str(tmp_path), "REPLY_CRON": "*/5 * * * *"})
     scheduler_module.start(settings, Mode.DRY_RUN, logger=LOGGER)
 
     assert fake.started is True
-    assert [job.id for job in fake.jobs] == ["publicacion_diaria", "respuesta_favoritos"]
-    assert all(job.max_instances == 1 and job.coalesce is True for job in fake.jobs)
-    assert "hour='16'" in str(fake.jobs[0].trigger)
-    assert "minute='0'" in str(fake.jobs[0].trigger)
-    assert "minute='*/5'" in str(fake.jobs[1].trigger)
+    assert [job.id for job in fake.jobs] == ["publicacion_diaria"]
+    job = fake.jobs[0]
+    assert job.max_instances == 1 and job.coalesce is True
+    assert "hour='16'" in str(job.trigger)
+    assert "minute='0'" in str(job.trigger)
 
-    for job in fake.jobs:
-        job.func(**job.kwargs)
-
-    assert [name for name, _ in calls] == ["publish", "reply"]
-    assert lock.entered == 2
-    assert lock.exited == 2
+    job.func(**job.kwargs)
+    assert calls == [{"settings": settings, "mode": Mode.DRY_RUN, "logger": LOGGER}]
 
 
-def test_start_rechaza_cron_invalido(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_start_no_usa_reply_cron(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeScheduler(timezone=object())
     monkeypatch.setattr(scheduler_module, "BlockingScheduler", lambda timezone: fake)
+    monkeypatch.setattr(scheduler_module, "run_publish", lambda **_kwargs: None)
 
     settings = load_settings({"DATA_DIR": str(tmp_path), "REPLY_CRON": "no es cron"})
-    with pytest.raises(SettingsError, match="REPLY_CRON"):
-        scheduler_module.start(settings, Mode.DRY_RUN, logger=LOGGER)
+    scheduler_module.start(settings, Mode.DRY_RUN, logger=LOGGER)
 
-    assert not fake.jobs
+    assert fake.started is True
+    assert [job.id for job in fake.jobs] == ["publicacion_diaria"]

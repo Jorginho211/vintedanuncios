@@ -108,19 +108,5 @@ def run_sweep(
     logger: logging.Logger,
     runtime_factory: RuntimeFactory = SeleniumRuntime,
 ) -> None:
-    """Compone y ejecuta un barrido completo; valida la configuración una sola vez."""
-    validate_data_dir(settings.data_dir)
-    config = load_config(settings.data_dir)
-    template = load_reply_template(settings.data_dir)
-
-    result = scan_handler.handle(ScanListings(data_dir=settings.data_dir, config=config))
-    for error in result.errors:
-        logger.error("Error de escaneo: %s", error)
-
-    accounts = _accounts(settings)
-    runtime = runtime_factory(settings, mode, accounts, logger)
-    try:
-        _publish(runtime, result, settings, logger)
-        _reply(runtime, accounts, template, settings, logger)
-    finally:
-        runtime.close()
+    """Alias de ``run_publish``: escanea ``Data`` y publica; no revisa favoritos."""
+    run_publish(settings, mode, logger=logger, runtime_factory=runtime_factory)

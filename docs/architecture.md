@@ -2,11 +2,12 @@
 
 ## Visión general
 
-La publicación corre una vez al día y la revisión de favoritos cada 15 minutos
-(configurable con `REPLY_CRON`); ambas acciones también se lanzan bajo demanda.
-`cli` y `scheduler` leen el entorno una sola vez, construyen `Settings` y `Mode`
-y los inyectan. Por defecto trabaja en simulación; solo con `--publish` escribe
-en Vinted. `--simulate-send` recorre el formulario real sin pulsar «Subir».
+La publicación corre una vez al día y también se lanza bajo demanda. La revisión
+de favoritos es sólo manual (`vinted reply`): no tiene job programado ni forma
+parte de los barridos (plan 023). `cli` y `scheduler` leen el entorno una sola vez,
+construyen `Settings` y `Mode` y los inyectan. Por defecto trabaja en simulación;
+solo con `--publish` escribe en Vinted. `--simulate-send` recorre el formulario
+real sin pulsar «Subir».
 
 ```
 cli / scheduler  ->  Settings + Mode
@@ -14,16 +15,15 @@ cli / scheduler  ->  Settings + Mode
                           v
                   features/run_sweep  (composición)
                           |
-          +------------------+-------------------+
-          |                  |                   |
-   run_publish          run_reply        runtime elige
-   valida Data          valida Data      adapters reales o no-op
-   + config/template    + plantilla
-   scan_listings        cuentas de Data
-          |                  |
-   publish_listings     reply_favorites
-   -> borrar solo        -> responde una vez
-      con confirmación
+   run_publish / run_sweep
+   valida Data + config
+          |
+   scan_listings -> publish_listings
+          |        -> borrar solo con confirmación
+          |
+   runtime elige adapters reales o no-op
+
+cli (bajo demanda) -> run_reply -> reply_favorites (con plantilla)
 ```
 
 ## Componentes
@@ -31,7 +31,7 @@ cli / scheduler  ->  Settings + Mode
 | Módulo | Responsabilidad | ¿Toca Selenium/filesystem? |
 |---|---|---|
 | `shared/settings.py` | Variables de entorno validadas, leídas una vez | No |
-| `shared/config.py` | `config.json`, descripción y plantilla de respuesta | Solo lectura de `Data/` |
+| `shared/config.py` | `config.json`, descripción y plantilla del reply manual | Solo lectura de `Data/` |
 | `shared/models.py` | Datos inmutables y `Mode` | No |
 | `shared/ports.py` | Contratos: driver, publisher, replier, store, runtime | No |
 | `shared/pause.py` | Pausas configurables | No |
@@ -46,8 +46,8 @@ cli / scheduler  ->  Settings + Mode
 | `features/check_session/` | Abre Vinted con un perfil para verificar la sesión a mano | Indirecto |
 | `features/publish_listings/` | Command de publicación + simulación | No |
 | `features/reply_favorites/` | Command de respuesta + simulación | No |
-| `features/run_sweep/` | Orquestación de publicar, responder y barrido completo; selección de adapters según `Mode` | Indirecto |
-| `scheduler.py` | Dos crons y bloqueo compartido contra solapes | No |
+| `features/run_sweep/` | Orquestación de publicación, barrido y reply manual; selección de adapters según `Mode` | Indirecto |
+| `scheduler.py` | Un cron de publicación (sin job de favoritos ni bloqueo) | No |
 | `cli.py` | Composition root de Typer | No |
 
 ## Contrato de datos
@@ -88,12 +88,13 @@ del desplegable que la contiene (`W32` o `ES 42`); sin opción, error sin public
 Descripción: contenido de `Data/description.txt` con `{{TALLA}}` sustituido por
 la talla calculada.
 
-Respuesta: contenido literal de `Data/reply_added_favorites.txt`.
+Respuesta: contenido literal de `Data/reply_added_favorites.txt`, usado sólo por
+`vinted reply`.
 
-Los tres archivos de configuración (`config.json`, `description.txt` y
-`reply_added_favorites.txt`) son obligatorios para `run_publish` y `run_sweep`:
-`validate_data_dir()` se ejecuta una sola vez y `cli` termina con código 1 si
-falta alguno. `run_reply` solo valida el árbol de cuentas y la plantilla con
+Los archivos `config.json` y `description.txt` son obligatorios para
+`run_publish` y `run_sweep`: `validate_data_dir()` se ejecuta una sola vez y `cli`
+termina con código 1 si falta alguno. Esos barridos no leen la plantilla.
+`run_reply`, como comando manual, valida el árbol de cuentas y la plantilla con
 `validate_reply_data_dir()` y `load_reply_template()`; sin cuentas avisa y termina
 con código 0.
 
@@ -112,16 +113,16 @@ con código 0.
 | `PAUSE_BETWEEN_LISTINGS` | `0` |
 | `PAUSE_BETWEEN_ACCOUNTS` | `0` |
 | `TIMEZONE` | `Europe/Madrid` |
-| `REPLY_CRON` | `*/15 * * * *` |
+| `REPLY_CRON` | `*/15 * * * *` (reservada, job retirado) |
 
 `load_settings(environ=None)` centraliza defaults y validación. `TZ` es ignorada
 por la aplicación y los nombres antiguos de las pausas no se reconocen: el
 proyecto aún no está en producción y no se mantiene compatibilidad.
 
 `ActionPacer` (`shared/pause.py`) aplica un retardo aleatorio entre
-`SELENIUM_ACTION_DELAY_MIN` y `MAX` después de cada acción del publicador y del
-replier. Su único fin es dar tiempo al DOM y evitar carreras; no hay lógica de
-evasión de anti-bot. Con ambos valores a `0` no se duerme.
+`SELENIUM_ACTION_DELAY_MIN` y `MAX` después de cada acción del publicador y, en
+`vinted reply`, del replier. Su único fin es dar tiempo al DOM y evitar carreras;
+no hay lógica de evasión de anti-bot. Con ambos valores a `0` no se duerme.
 
 Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
 `adapters/vinted_wait.py` (`click_css`, `click_xpath`, `fill` y
@@ -135,14 +136,14 @@ Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
   de datos y la constitución establece que el filesystem es la fuente de verdad.
 - **Slices verticales:** `scan_listings`, `publish_listings`, `reply_favorites` y
   `run_sweep` agrupan la lógica por caso de uso; `shared/` aporta los contratos.
-  `run_sweep` expone tres orquestadores: `run_publish`, `run_reply` y el barrido
-  completo, que comparten el mismo runtime.
+  `run_sweep` es un alias de `run_publish`; `run_reply` sigue disponible como
+  comando manual. Todos comparten el mismo runtime.
 - **Simulación por composición:** en `Mode.DRY_RUN` el runtime devuelve publishers
   y store de no-op y no crea ningún driver. En `Mode.SIMULATE_SEND` usa el
-  publisher real con `submit=False`, store real y replier simulado. Los handlers
-  no reciben flags `dry_run` ni drivers nulos.
+  publisher real con `submit=False`, store real y, si se invoca `vinted reply`,
+  replier simulado. Los handlers no reciben flags `dry_run` ni drivers nulos.
 - **Sesión perezosa:** el driver se crea solo para cuentas con trabajo. Tras la
-  última publicación de la cuenta se cierra; la fase de favoritos abre su propia
+  última publicación de la cuenta se cierra; el reply manual abre su propia
   sesión. `Runtime.release(account)` lo garantiza con `try/finally`.
 - **Perfil persistente:** el driver pasa `-profile <ruta del contenedor>` en
   `moz:firefoxOptions.args`; geckodriver usa `sessions/<Cuenta>` in situ a través
@@ -167,12 +168,12 @@ Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
   carpetas de cuenta ni de categoría. Un resultado ambiguo al publicar es error:
   sin borrado y sin reintentos.
 - Sin base de datos local: el estado de las conversaciones lo determina Vinted.
-- **Dos jobs, un perfil a la vez:** publicación diaria y favoritos comparten un
-  `Lock`; cada job tiene `max_instances=1` y `coalesce=True`. Un cron inválido en
-  `REPLY_CRON` se rechaza al arrancar con `SettingsError`.
-- **CLI por subcomando:** `publish` y `reply` son acciones puntuales; `sweep` (o
-  `vinted` sin subcomando) mantiene el barrido completo y `--schedule` arranca los
-  dos jobs programados.
+- **Un job de publicación:** diario a las 16:00, con `max_instances=1` y
+  `coalesce=True`. El job de favoritos y su `Lock` compartido están retirados
+  (plan 023); `REPLY_CRON` se conserva pero no se usa en el arranque.
+- **CLI por subcomando:** `publish` y `sweep` publican, igual que `vinted` sin
+  subcomando; `reply` es una acción manual. `--schedule` arranca el job de
+  publicación.
 
 ## Selectores del formulario real
 
@@ -198,8 +199,11 @@ la talla calculada y sus selectores se validaron con `--simulate-send`.
 
 ## Riesgos conocidos / pendientes
 
-- Los selectores de favoritos siguen siendo provisionales: validar la ubicación
-  de la alerta «ha marcado como favorito tu artículo» con `docs/checklist.md`.
+- El reply automático está retirado temporalmente (plan 023): el job y la fase de
+  favoritos del barrido no se ejecutan. El comando manual `vinted reply` conserva
+  la lógica y sus selectores, que siguen siendo provisionales: validar la
+  ubicación de la alerta «ha marcado como favorito tu artículo» con
+  `docs/checklist.md` antes de reactivarlo.
 - La caption se lee del nombre del archivo con `pathlib.stem`; no se usan metadatos ni librerías externas.
 - El perfil de Firefox en `sessions/<Cuenta>/` se comprueba entre ejecuciones con
   `vinted check-session <Cuenta>` (planes 014 y 020). Si Vinted expulsa la sesión
