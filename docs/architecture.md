@@ -77,13 +77,15 @@ Si la caption no incluye marca, el publicador pone `Vintage Dressing` en el
 campo «Marca» (incluso si Vinted sugirió otra), pero no la añade al título:
 `Caption.brand` sigue siendo `None` y se usa la variante `default`.
 
-Talla: `width_cm` es el ancho plano (media vuelta). `shared/sizes.py` aplica
-tablas deterministas por rangos `[mín, máx)`: pantalones dan `WXX | ES XX` con
-`ES = W + 10` (34,29–62,23 cm) y el resto da `XXXS` a `8XL` (30–72 cm), con
-`XXL`/`XXXL` en lugar de `2XL`/`3XL` para coincidir con Vinted. Fuera de
-rango, `SizeError` se añade a `ScanResult.errors` y el anuncio no se publica.
+Talla: `width_cm` es el ancho plano (media vuelta) y `length_cm` el largo.
+`shared/sizes.py` aplica tablas deterministas con rangos `[mín, máx)` (plan 025):
+pantalones van de W23 a W38 (28,58–48,90 cm, `W × 1,27`) y dan `WXX | ESXX` con
+`ES = W + 10`. Tops usan una matriz vintage de 9 × 9 (ancho × largo) de `XXXS` a
+`XXXL`: el ancho fija la talla y un largo tres bandas o más más corto la baja una
+posición; `XXXS` y `XXXL` son abiertos en los extremos. Fuera de rango,
+`SizeError` se añade a `ScanResult.errors` y el anuncio no se publica.
 `Listing.size` guarda la talla calculada y el publicador elige la primera opción
-del desplegable que la contiene (`W32` o `ES 42`); sin opción, error sin publicar.
+del desplegable que la contiene (`W32` o `ES42`); sin opción, error sin publicar.
 
 Descripción: contenido de `Data/description.txt` con `{{TALLA}}` sustituido por
 la talla calculada.
@@ -198,7 +200,7 @@ Validados con volcados de HTML de CuentaA (`/tmp/opencode/vinted_*.html`, plan 0
 | Marca | Se conserva la sugerencia de Vinted solo si coincide; si no, `[data-testid="brand-select-dropdown-input"]` + `#brand-search-input`, primera opción. Sin marca en la caption se abre el desplegable y se recorren las opciones `[data-testid="brand-select-dropdown-content"] [role="radio"][id^="brand-"]` con scroll por JavaScript hasta encontrar `Vintage Dressing` (texto normalizado en minúsculas); el buscador no la ofrece |
 | Color | `[data-testid="color-select-dropdown-input"]`; primera sugerencia o primer color de la lista |
 | Estado | `#condition-2` («Muy bueno») |
-| Talla | `[data-testid="category-size-single-grid-input"]` + opciones `[data-testid="category-size-single-grid-content"] [role="checkbox"]` (Vinted ofrece pares como `W34 | ES 44`) |
+| Talla | `[data-testid="category-size-single-grid-input"]` + opciones `[data-testid="category-size-single-grid-content"] [role="checkbox"]` (Vinted ofrece pares como `W34 | ES44`) |
 | Envío | `[data-testid="1-package-size--cell"]` («Pequeño»); el radio `#package_type_selector_1` está oculto |
 | Subir | `[data-testid="upload-form-save-button"]` |
 | Error de subida | `[data-testid="item-upload-critical-error-dialog"]` |

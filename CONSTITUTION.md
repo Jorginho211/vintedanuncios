@@ -74,7 +74,7 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
   el listado con scroll hasta encontrar una opción cuyo texto, normalizado en
   minúsculas, coincida; si no aparece, se informa del error sin publicar.
 - El formulario usa la categoría antes del primer punto (`Cortavientos.General` → `Cortavientos`).
-- Talla: `width_cm` es el ancho plano de la prenda (media vuelta). La tabla `pants` produce `WXX | ES XX` con `ES = W + 10`; la tabla `top` produce de `XXXS` a `8XL`. Solo `Pantalones Anchos` usa `pants`. Medidas fuera de tabla son error de escaneo. La misma talla se sustituye en `{{TALLA}}` y se busca en el campo «Talla» de Vinted: se elige la primera opción del DOM que contenga `WXX` o `ES XX`; si no existe, no se publica.
+- Talla: `width_cm` es el ancho plano de la prenda (media vuelta) y `length_cm` el largo. La tabla `pants` va de W23 a W38 (28,58–48,90 cm de ancho plano, `W × 1,27`) y produce `WXX | ESXX` con `ES = W + 10`. La tabla `top` es vintage y usa una matriz ancho × largo de `XXXS` a `XXXL`: el ancho manda y un largo tres bandas o más más corto baja una talla; los extremos de `XXXS`/`XXXL` quedan abiertos. Solo `Pantalones Anchos` usa `pants`. Medidas fuera de tabla son error de escaneo. La misma talla se sustituye en `{{TALLA}}` y se busca en el campo «Talla» de Vinted: se elige la primera opción del DOM que contenga `WXX` o `ESXX`; si no existe, no se publica.
 - `Data/description.txt`: descripción común a todas las categorías. Si aparece `{{TALLA}}`, se sustituye por la talla calculada.
 - `Data/reply_added_favorites.txt`: plantilla global usada sólo por `vinted reply`.
   Si falta o está vacía, ese comando termina con error y código 1.

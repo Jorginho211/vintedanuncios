@@ -18,7 +18,7 @@ Antes de dar por bueno un cambio:
    - Revisar que se listan las cuentas y categorías esperadas.
    - Revisar que los títulos salen de la categoría correcta (incluida la variante `levis`).
    - Revisar que la descripción contiene el texto de `description.txt`, con
-     `{{TALLA}}` sustituido por la talla calculada (`W32 | ES 42` o, por
+     `{{TALLA}}` sustituido por la talla calculada (`W32 | ES42` o, por
      ejemplo, `M`), y que una medida fuera de tabla aparece en `errors`.
    - Confirmar que no se ha borrado ninguna carpeta ni publicado nada.
 7. Si el cambio afecta a Selenium o a los perfiles:

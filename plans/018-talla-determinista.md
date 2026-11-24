@@ -1,5 +1,8 @@
 # Plan 018 — Talla determinista por categoría y medidas
 
+> **Nota:** las tablas de tallas de este plan quedaron sustituidas por el plan
+> 025 (pantalones W23–W38 con `WXX | ESXX` y tops vintage ancho × largo).
+
 **Estado:** implementado y validado con `--simulate-send` en CuentaA para las dos
 ramas (pantalón `42x95` → `W34 | ES 44` y sudadera `51x70` → `XXL`). Los
 selectores iniciales eran incorrectos; se corrigieron a

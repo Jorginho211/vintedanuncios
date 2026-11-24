@@ -435,7 +435,7 @@ def test_simulate_send_configura_el_publicador_sin_submit(
             caption=Caption(1.0, 1.0, 1.0, None, None),
             title="Titulo",
             description="Descripcion",
-            size="W32 | ES 42",
+            size="W32 | ES42",
         )
     )
 

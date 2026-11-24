@@ -62,7 +62,11 @@ def handle(query: ScanListings) -> ScanResult:
                         *(image for image in images_by_name if image != caption_image),
                     )
                     config_category = category_dir.name
-                    size = size_for(size_kind_for(query.config, config_category), caption.width_cm)
+                    size = size_for(
+                        size_kind_for(query.config, config_category),
+                        caption.width_cm,
+                        caption.length_cm,
+                    )
                     listings.append(
                         Listing(
                             account=account_dir.name,

@@ -9,7 +9,7 @@ from vinted_anuncios.shared.config import load_config
 from vinted_anuncios.shared.models import ScanResult
 
 
-def _prepare(tmp_path: Path, *, image_name: str | None = "25;40x30;Levis;501.JPG") -> Path:
+def _prepare(tmp_path: Path, *, image_name: str | None = "25;45x70;Levis;501.JPG") -> Path:
     data_dir = tmp_path / "Data"
     folder = data_dir / "Cuenta A" / "Cortavientos.General" / "Anuncio 1"
     folder.mkdir(parents=True)
@@ -56,7 +56,7 @@ def test_scan_separa_categoria_de_config_y_de_formulario(tmp_path: Path) -> None
 
 
 def test_scan_sin_marca_no_anade_la_marca_por_defecto_al_titulo(tmp_path: Path) -> None:
-    _prepare(tmp_path, image_name="25;40x30.JPG")
+    _prepare(tmp_path, image_name="25;45x70.JPG")
 
     result = _scan(tmp_path)
 
@@ -75,7 +75,7 @@ def test_scan_sin_caption_en_el_nombre_registra_error(tmp_path: Path) -> None:
 
 def test_scan_prueba_siguiente_imagen_si_la_primera_no_tiene_caption(tmp_path: Path) -> None:
     folder = _prepare(tmp_path, image_name="foto.JPG")
-    caption_photo = folder / "20;30x40.JPG"
+    caption_photo = folder / "20;45x70.JPG"
     caption_photo.write_bytes(b"foto")
     result = _scan(tmp_path)
     assert result.errors == ()
@@ -88,7 +88,7 @@ def test_scan_pone_la_foto_con_caption_la_primera(tmp_path: Path) -> None:
     folder = _prepare(tmp_path, image_name=None)
     first = folder / "1.JPG"
     second = folder / "2.JPG"
-    caption_photo = folder / "25;40x30;Levis;501.JPG"
+    caption_photo = folder / "25;45x70;Levis;501.JPG"
     for photo in (caption_photo, second, first):
         photo.write_bytes(b"foto")
 
@@ -101,7 +101,7 @@ def test_scan_pone_la_foto_con_caption_la_primera(tmp_path: Path) -> None:
 
 def test_scan_conserva_el_orden_si_la_caption_ya_es_la_primera(tmp_path: Path) -> None:
     folder = _prepare(tmp_path, image_name=None)
-    caption_photo = folder / "25;40x30;Levis;501.JPG"
+    caption_photo = folder / "25;45x70;Levis;501.JPG"
     other = folder / "z.JPG"
     for photo in (caption_photo, other):
         photo.write_bytes(b"foto")
@@ -115,7 +115,7 @@ def test_scan_conserva_el_orden_si_la_caption_ya_es_la_primera(tmp_path: Path) -
 
 def test_scan_rechaza_heic_con_mensaje_explicito(tmp_path: Path) -> None:
     folder = _prepare(tmp_path, image_name=None)
-    (folder / "25;40x30;Levis;501.HEIC").write_bytes(b"foto")
+    (folder / "25;45x70;Levis;501.HEIC").write_bytes(b"foto")
     result = _scan(tmp_path)
     assert any("HEIC" in error and "JPEG" in error for error in result.errors)
 
@@ -148,8 +148,8 @@ def test_scan_calcula_talla_de_pantalon_y_resuelve_el_placeholder(tmp_path: Path
 
     assert result.errors == ()
     assert len(result.listings) == 1
-    assert result.listings[0].size == "W32 | ES 42"
-    assert result.listings[0].description == "Talla: W32 | ES 42"
+    assert result.listings[0].size == "W31 | ES41"
+    assert result.listings[0].description == "Talla: W31 | ES41"
 
 
 def test_scan_registra_error_si_la_medida_esta_fuera_de_tabla(tmp_path: Path) -> None:

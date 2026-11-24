@@ -194,7 +194,7 @@ def test_elige_la_primera_opcion_de_talla_presente_en_el_dom(
         vinted_publisher, "click_js", lambda _driver, element: clicked.append(element)
     )
 
-    publisher._choose_size("W32 | ES 42")
+    publisher._choose_size("W32 | ES42")
 
     assert clicked == [right]
 
@@ -210,7 +210,7 @@ def test_falla_si_vinted_no_ofrece_la_talla(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(publisher, "_pace", lambda: None)
 
     with pytest.raises(RuntimeError, match="no ofreció la talla"):
-        publisher._choose_size("W32 | ES 42")
+        publisher._choose_size("W32 | ES42")
 
 
 def test_configura_el_pacer_con_los_valores_de_settings(monkeypatch: pytest.MonkeyPatch) -> None:
