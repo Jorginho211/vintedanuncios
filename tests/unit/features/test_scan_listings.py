@@ -75,11 +75,42 @@ def test_scan_sin_caption_en_el_nombre_registra_error(tmp_path: Path) -> None:
 
 def test_scan_prueba_siguiente_imagen_si_la_primera_no_tiene_caption(tmp_path: Path) -> None:
     folder = _prepare(tmp_path, image_name="foto.JPG")
-    (folder / "20;30x40.JPG").write_bytes(b"foto")
+    caption_photo = folder / "20;30x40.JPG"
+    caption_photo.write_bytes(b"foto")
     result = _scan(tmp_path)
     assert result.errors == ()
     assert len(result.listings) == 1
     assert result.listings[0].caption.price == 20.0
+    assert result.listings[0].images == (caption_photo, folder / "foto.JPG")
+
+
+def test_scan_pone_la_foto_con_caption_la_primera(tmp_path: Path) -> None:
+    folder = _prepare(tmp_path, image_name=None)
+    first = folder / "1.JPG"
+    second = folder / "2.JPG"
+    caption_photo = folder / "25;40x30;Levis;501.JPG"
+    for photo in (caption_photo, second, first):
+        photo.write_bytes(b"foto")
+
+    result = _scan(tmp_path)
+
+    assert result.errors == ()
+    assert len(result.listings) == 1
+    assert result.listings[0].images == (caption_photo, first, second)
+
+
+def test_scan_conserva_el_orden_si_la_caption_ya_es_la_primera(tmp_path: Path) -> None:
+    folder = _prepare(tmp_path, image_name=None)
+    caption_photo = folder / "25;40x30;Levis;501.JPG"
+    other = folder / "z.JPG"
+    for photo in (caption_photo, other):
+        photo.write_bytes(b"foto")
+
+    result = _scan(tmp_path)
+
+    assert result.errors == ()
+    assert len(result.listings) == 1
+    assert result.listings[0].images == (caption_photo, other)
 
 
 def test_scan_rechaza_heic_con_mensaje_explicito(tmp_path: Path) -> None:

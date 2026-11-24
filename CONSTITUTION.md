@@ -43,6 +43,8 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 - `medidas` en centímetros con formato `50x60`.
 - El nombre del archivo es la caption sin la extensión: `24.95;50x60;Nike;35A.JPG`.
 - Ejemplos: `25;40x30.JPG`, `25;40x30;Levis.JPG`, `25;40x30;Levis;Air Max 90.JPG`.
+- Las fotos se adjuntan ordenadas por nombre, con la foto que lleva la caption
+  siempre en primera posición; el resto conserva su orden alfabético.
 - Vinted solo acepta JPEG/PNG/GIF: las fotos `.HEIC`/`.HEIF` se rechazan con un
   diálogo de error crítico y no se convierten automáticamente.
 - No se contempla el caso "modelo sin marca".

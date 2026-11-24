@@ -31,6 +31,8 @@ Antes de dar por bueno un cambio:
 8. Si el cambio afecta a publicación:
    - Probar con **una** cuenta y **un** anuncio cuyas fotos sean JPEG/PNG/GIF.
      Con `.HEIC`, Vinted muestra un error crítico y el anuncio no se publica.
+   - Verificar que la foto con la caption en el nombre aparece primero en el
+     formulario y que las demás mantienen el orden por nombre.
    - Hacer una copia de `Data/` antes de `--simulate-send`: borra las carpetas de
      los anuncios, pero conserva las de cuenta y categoría.
    - `poetry run vinted --simulate-send`: ver en `http://127.0.0.1:7900` que se

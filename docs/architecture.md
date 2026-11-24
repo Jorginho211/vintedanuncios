@@ -58,6 +58,10 @@ Medidas en cm (`50x60`). `;` siempre separa; se tolera un `;` final. No se valid
 el caso "modelo sin marca" porque se acordó que no puede ocurrir. Solo se
 aceptan fotos JPEG/PNG/GIF; los `.HEIC`/`.HEIF` se rechazan en el escaneo con un
 mensaje que pide convertirlos a JPEG (Vinted los rechaza con un diálogo crítico).
+El orden de adjunción se resuelve en el escaneo: las fotos van ordenadas por
+nombre y la que contiene la caption se promueve a la primera posición. Así
+`Listing.images` es la única fuente de verdad y el publicador y el dry-run
+consumen el mismo orden.
 
 `Listing` guarda `config_category` (nombre completo de la carpeta, para
 `config.json`) y `form_category` (antes del primer `.`, para el formulario).

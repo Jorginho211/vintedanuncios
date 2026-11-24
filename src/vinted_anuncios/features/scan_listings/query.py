@@ -34,11 +34,12 @@ def subdirectories(path: Path) -> list[Path]:
     )
 
 
-def caption_from_images(images: tuple[Path, ...]) -> Caption:
+def caption_and_image_from_images(images: tuple[Path, ...]) -> tuple[Caption, Path]:
+    """Devuelve la caption y la imagen que la contiene (la primera válida)."""
     last_error = "ninguna imagen en la carpeta"
     for image in images:
         try:
-            return parse_caption_from_filename(image)
+            return parse_caption_from_filename(image), image
         except CaptionError as exc:
             last_error = str(exc)
     raise ScanError(f"ningún archivo tiene una caption válida en el nombre: {last_error}")
@@ -50,6 +51,6 @@ __all__ = [
     "ScanError",
     "form_category_from",
     "ScanListings",
-    "caption_from_images",
+    "caption_and_image_from_images",
     "subdirectories",
 ]
