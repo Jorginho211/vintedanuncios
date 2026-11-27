@@ -21,6 +21,7 @@ from .vinted_wait import (
     close_current_tab,
     open_tab,
     scroll_window,
+    wait_for,
     wait_for_all,
     wait_for_page_ready,
 )
@@ -165,9 +166,11 @@ class VintedFavoriteReplier:
                             "La notificación %s tardó en quedar lista", target.notification_id
                         )
                     self._pause(1.2, 2.8)
-                    replied = bool(
-                        driver.find_elements(By.CSS_SELECTOR, selectors.SELECTOR_REPLIED_MARKER)
-                    )
+                    try:
+                        wait_for(driver, selectors.SELECTOR_REPLIED_MARKER, min(timeout, 5.0))
+                        replied = True
+                    except TimeoutException:
+                        replied = False
                     notifications.append(
                         FavoriteNotification(
                             account=self._account,
