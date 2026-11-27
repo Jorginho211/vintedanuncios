@@ -2,13 +2,13 @@
 
 ## 1. Propósito
 
-Herramienta **local** y de uso personal que, desde un árbol de carpetas, publica anuncios en Vinted. También inspecciona notificaciones de favoritos por cuenta (`vinted reply`) para detectar artículos añadidos a favoritos; esta fase solo lista y no envía mensajes. El envío automático queda para un plan posterior (planes 023, 027).
+Herramienta **local** y de uso personal que, desde un árbol de carpetas, publica anuncios en Vinted. También revisa notificaciones de favoritos por cuenta (`vinted reply`): abre cada conversación pendiente, ofrece 2 € menos que el precio anterior y envía una plantilla. Esa escritura solo ocurre con `--publish` (planes 027 y 028).
 
 No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 
 ## 2. Principios rectores
 
-1. **Simulación por defecto.** Ninguna acción escribe en Vinted salvo que se pase explícitamente `--publish`. Los modos `--dry-run`, `--simulate-send`, `--check-submit` y `--publish` son mutuamente exclusivos; `--simulate-send` recorre el formulario real sin pulsar «Subir» y `--check-submit` solo diagnostica el estado del formulario antes de pulsarlo. El diagnóstico no borra carpetas; `--simulate-send` sí las borra al terminar.
+1. **Simulación por defecto.** Ninguna acción escribe en Vinted salvo que se pase explícitamente `--publish`. Los modos `--dry-run`, `--simulate-send`, `--check-submit` y `--publish` son mutuamente exclusivos; `--simulate-send` recorre el formulario real sin pulsar «Subir» y `--check-submit` solo diagnostica el estado del formulario antes de pulsarlo. En `reply`, solo `--publish` pulsa la oferta y envía el mensaje: los demás modos solo inspeccionan y registran lo que harían. El diagnóstico no borra carpetas; `--simulate-send` sí las borra al terminar un barrido de publicación.
 2. **El sistema de archivos es la fuente de verdad.** Una carpeta de anuncio existe = anuncio pendiente. Se borra tras la publicación confirmada o al terminar `--simulate-send`, siempre con guarda de ruta: solo `Data/<Cuenta>/<Categoría>/<Anuncio>/`.
 3. **Separación de capas.** `shared/` contiene datos y contratos; los handlers de
    `features/` contienen los casos de uso; Selenium y el filesystem viven aislados
@@ -26,7 +26,7 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 | Entorno y dependencias | Poetry (`pyproject.toml`, `poetry.lock`) |
 | Automatización | Selenium + Firefox (Docker, `docker-compose.yaml`) |
 | Caption | Nombre del archivo de foto; solo `pathlib`, sin librerías de metadatos |
-| Scheduler | APScheduler: publicación `0 16 * * *` y inspección de favoritos con intervalo aleatorio real de 30-60 min, `Europe/Madrid` configurable por `TIMEZONE` (plan 027) |
+| Scheduler | APScheduler: publicación `0 16 * * *` y respuesta de favoritos con intervalo aleatorio real de 30-60 min, `Europe/Madrid` configurable por `TIMEZONE` (planes 027 y 028) |
 | CLI | Typer |
 | Calidad | Ruff, mypy estricto, pytest, pre-commit (Ruff + mypy + detect-secrets), pip-audit manual |
 | Contenedores | `Dockerfile` (solo dependencias de producción) + `docker-compose.yaml` con `selenium` y `vinted` (plan 024) |
@@ -61,9 +61,9 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
   o `vinted sweep`; se crean copiando sus respectivos `*.example`. Si falta
   alguno, la ejecución se detiene con error y código de salida 1; no se escanea
   ni se publica. `reply_added_favorites.txt` no se lee en esos barridos.
-- El comando manual `reply` solo exige el árbol de carpetas de cuenta y la
-  plantilla: no lee `config.json` ni `description.txt`; sin cuentas avisa y
-  termina con código 0.
+- El comando manual `reply` solo exige el árbol de carpetas de cuenta; en modos
+  reales también exige la plantilla: no lee `config.json` ni `description.txt`;
+  sin cuentas avisa y termina con código 0.
 - `Data/config.json`: una clave por categoría, con `default`, variantes opcionales por marca (`levis`) y la clave reservada `size` (`pants` o `top`) que elige la tabla de tallas. Falta o valor inválido detiene la ejecución.
 - Selección del título: `config.json` usa el nombre de carpeta de categoría completo (puntos literales) + `marca.lower()`; si no hay variante, `default`. El título enviado es `<Marca> <Modelo> <Titulo>`. La marca también se elige en el campo «Marca»; el modelo no existe como campo en Vinted y solo va en el título. Las medidas no se envían.
 - Si la caption no tiene marca, el campo «Marca» del formulario se rellena con
@@ -76,8 +76,8 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 - El formulario usa la categoría antes del primer punto (`Cortavientos.General` → `Cortavientos`).
 - Talla: `width_cm` es el ancho plano de la prenda (media vuelta) y `length_cm` el largo. La tabla `pants` va de W23 a W38 (28,58–48,90 cm de ancho plano, `W × 1,27`) y produce `WXX | ESXX` con `ES = W + 10`. La tabla `top` es vintage y usa una matriz ancho × largo de `XXXS` a `XXXL`: el ancho manda y un largo tres bandas o más más corto baja una talla; los extremos de `XXXS`/`XXXL` quedan abiertos. Solo `Pantalones Anchos` usa `pants`. Medidas fuera de tabla son error de escaneo. La misma talla se sustituye en `{{TALLA}}` y se busca en el campo «Talla» de Vinted: se elige la primera opción del DOM que contenga `WXX` o `ESXX`; si no existe, no se publica.
 - `Data/description.txt`: descripción común a todas las categorías. Si aparece `{{TALLA}}`, se sustituye por la talla calculada.
-- `Data/reply_added_favorites.txt`: plantilla reservada para la fase futura de
-  envío de respuestas. `vinted reply` no la exige en la fase de inspección.
+- `Data/reply_added_favorites.txt`: texto que se envía a cada favorito pendiente.
+  `vinted reply --dry-run` no lo exige; los modos reales sí.
 - Las variables de entorno se leen y validan una sola vez en `shared/settings.py`;
   `config.py` queda reservado a la configuración de dominio de `Data/`. Los nombres
   de entorno van en inglés, igual que los identificadores de código. La inspección
@@ -119,7 +119,7 @@ sessions/<Cuenta>/                    (perfil Firefox in situ; ignorado por Git)
 
 ## 7. Pendientes documentados
 
-- Confirmar la ubicación exacta de la alerta *"ha marcado como favorito tu artículo"* antes de reactivar el reply automático (plan 007).
+- Confirmar manualmente los selectores de la modal de oferta y del composer con el checklist antes de usar `vinted reply --publish` (plan 028).
 - Verificar manualmente que el perfil conserva el login entre dos sesiones (plan 020).
 
 ## 8. Proceso de cambio

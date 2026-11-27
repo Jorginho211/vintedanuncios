@@ -2,17 +2,22 @@
 
 ## Niveles
 
-- **Unitarios** (`tests/unit/`): `shared/` (settings, caption, títulos, lock y
-  contratos) y `features/` (query de escaneo, publicación e inspección de
-  favoritos). Los tests de `run_sweep`, `run_publish` y `run_reply` inyectan un
-  runtime falso: sin navegador ni red. `run_sweep` equivale a `run_publish` y no
-  inspecciona favoritos; `run_reply` inspecciona cuentas sin enviar mensajes. La
-  CLI se prueba con `CliRunner` y el scheduler con un scheduler falso; tampoco
-  abren Selenium.
+- **Unitarios** (`tests/unit/`): `shared/` (settings, caption, títulos, lock,
+  cálculo de ofertas y contratos) y `features/` (query de escaneo, publicación y
+  respuesta de favoritos). Los tests de `run_sweep`, `run_publish` y `run_reply`
+  inyectan un runtime falso: sin navegador ni red. `run_sweep` equivale a
+  `run_publish` y no revisa favoritos; `run_reply` exige la plantilla en modos
+  reales y pasa el flag de escritura al adapter. El adapter del reply se prueba
+  con un driver y elementos falsos que comprueban el orden de las acciones sin
+  escribir en Vinted. La CLI se prueba con `CliRunner` y el scheduler con un
+  scheduler falso; tampoco abren Selenium.
 - **Integración** (`tests/integration/`): lectura real de la caption desde el
   nombre de una foto y comprobación de selectores contra un snapshot HTML.
 - **E2E:** no automatizado. La verificación contra Vinted se hace con
   `docs/checklist.md` en modo `--dry-run` y, puntualmente, con `--publish`.
+  El cambio de precio y el envío del mensaje del reply solo se pueden confirmar
+  en Vinted con `--publish` autorizado; los tests unitarios cubren la lógica y
+  el orden de llamadas con fakes.
 
 ## Cobertura
 

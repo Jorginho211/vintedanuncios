@@ -11,8 +11,8 @@ Antes de dar por bueno un cambio:
 4. Comprobar que `config.json` y `description.txt` existen en `Data/` (copiados
    de los `*.example`). Renombrar `config.json` temporalmente y verificar que
    `vinted --dry-run` termina con código 1 y un error que indica qué copiar.
-   Para probar el reply manual, comprobar además `reply_added_favorites.txt`
-   (paso 12).
+   Para probar `reply` en modos reales, comprobar además
+   `reply_added_favorites.txt` (pasos 9 y 12).
 5. `docker compose up -d` y comprobar que Selenium responde en `http://127.0.0.1:4444`.
 6. `poetry run vinted --dry-run`
    - Revisar que se listan las cuentas y categorías esperadas.
@@ -58,20 +58,30 @@ Antes de dar por bueno un cambio:
    - Si falla la talla, el mensaje debe incluir las etiquetas reales de las
      opciones del desplegable; si falla «Subir», debe distinguir «no se pudo
      pulsar» de «pulsado pero Vinted no navegó» (plan 026).
-9. Si el cambio afecta a la inspección de favoritos (`vinted reply`):
-   - Verificar que recorre cuentas desde `Data/<Cuenta>/` y usa su sesión.
-   - Confirmar que navega a `/member/notifications`.
-   - Confirmar que recoge máximo 40 wrappers `inbox-notification-intersection-wrapper`
-     cuyo contenido contenga “a sus favoritos”.
+9. Si el cambio afecta al reply de favoritos (`vinted reply`):
+   - Con `--dry-run`, verificar que recorre cuentas desde `Data/<Cuenta>/` sin
+     abrir navegador ni exigir plantilla.
+   - Con un modo real y Selenium levantado, confirmar que navega a
+     `/member/notifications` y recoge máximo 40 wrappers
+     `inbox-notification-intersection-wrapper` cuyo contenido contenga
+     “a sus favoritos”.
    - Confirmar que abre cada notificación en pestaña secuencial, vuelve a la
      principal y cierra la pestaña secundaria.
-   - Confirmar que se detiene al detectar `offer-current-price-label`.
-   - Confirmar que no envía mensajes ni rellena inputs.
+   - En una conversación pendiente, ver en VNC que aparece la modal: el
+     placeholder `XX,XX €` se convierte en `XX,XX` con 2 € menos (por ejemplo
+     `24,95 €` → `22,95`), se pulsa `offer-submit-button` y el texto de
+     `reply_added_favorites.txt` llega a `composer--input` y se envía con Enter.
+   - Confirmar que al detectar `offer-current-price-label` no se actúa y se
+     detiene el barrido de esa cuenta.
+   - Confirmar que un precio ilegible o ≤ 2 € se omite con error en el log y se
+     continúa con la siguiente notificación.
+   - Confirmar que sin `--publish` no se rellena ningún input ni se pulsa
+     ningún botón de la modal o del composer.
    - Comprobar que los logs no contienen texto de compradores.
 10. Comprobar los comandos separados en simulación:
     - `poetry run vinted publish --dry-run`: publica anuncios, no inspecciona favoritos.
-    - `poetry run vinted reply --dry-run`: recorre cuentas y simula inspección, sin
-      plantilla, sin escaneo de anuncios y sin publicar.
+    - `poetry run vinted reply --dry-run`: recorre cuentas y simula el reply, sin
+      plantilla, sin navegador, sin escaneo de anuncios y sin escribir en Vinted.
     - `poetry run vinted sweep --dry-run`: publica como `vinted --dry-run`, sin
       inspeccionar favoritos.
     - `poetry run vinted --schedule`: comprobar en logs que se registran
@@ -80,8 +90,11 @@ Antes de dar por bueno un cambio:
 11. Renombrar temporalmente `Data/config.json`: `vinted reply --dry-run` debe seguir
     terminando con código 0, mientras `vinted publish --dry-run` termina con código 1.
 12. Con `Data/` sin carpetas de cuenta, `vinted reply --dry-run` avisa y termina con
-    código 0. No debe exigir plantilla de respuesta.
+    código 0. Con cuentas pero sin plantilla, `reply --dry-run` sigue terminando
+    con código 0, mientras `reply --publish` termina con código 1 y un error que
+    indica qué archivo copiar.
 13. Revisar que `vinted --help` muestra `publish`, `reply`, `sweep`,
-    `--simulate-send` y `--schedule`, y que `.env.example` documenta el intervalo
-    aleatorio 30-60 min sin `REPLY_CRON`.
+    `--simulate-send` y `--schedule`; que la ayuda de `reply` indica que solo
+    `--publish` escribe, y que `.env.example` documenta el intervalo aleatorio
+    30-60 min sin `REPLY_CRON`.
 14. `pip-audit` antes de actualizar dependencias.

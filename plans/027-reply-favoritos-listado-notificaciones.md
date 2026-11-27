@@ -1,6 +1,7 @@
 # Plan 027 — Listado automático de notificaciones de favoritos
 
-**Estado:** en implementación.
+**Estado:** completado. La fase de inspección sigue vigente; el envío de la
+oferta y del mensaje se implementa en el plan 028.
 
 **Objetivo:** volver a ejecutar automáticamente la revisión de favoritos cada 30-60
 minutos, pero solo para **inspeccionar/listar** notificaciones de artículos añadidos
@@ -8,12 +9,13 @@ a favoritos. No se envía ningún mensaje en esta fase.
 
 ## Decisiones acordadas
 
-1. `vinted reply` inspecciona notificaciones y no responde. El envío queda para un
-   plan posterior.
+1. `vinted reply` inspecciona notificaciones; el envío se añadió después en el
+   plan 028, sin cambiar la detección ni el orden del barrido.
 2. Intervalo aleatorio real: tras cada ejecución se calcula el siguiente disparo con
    `random.randint(30, 60)` minutos. No se usa cron.
 3. `REPLY_CRON` se elimina; el intervalo queda documentado como 30-60 min aleatorio.
-4. `Data/reply_added_favorites.txt` no es obligatoria en esta fase.
+4. `Data/reply_added_favorites.txt` no era obligatoria en esta fase; el plan 028
+   la exige solo en modos reales.
 5. Se inspeccionan cuentas desde `Data/<Cuenta>/`, usando el perfil
    `sessions/<Cuenta>/` igual que el resto de comandos.
 6. Lock global cross-process para Selenium: ningún job/comando debe pisar sesiones
@@ -25,9 +27,10 @@ a favoritos. No se envía ningún mensaje en esta fase.
    ya está respondida (`data-testid="offer-current-price-label"`), detenerse. No
    hacer ninguna acción sobre la notificación.
 
-## No objetivos
+## No objetivos de esta fase
 
-- No enviar mensajes ni tocar inputs/botones de conversación.
+- No enviar mensajes ni tocar inputs/botones de conversación (ampliado en el
+  plan 028).
 - No automatizar E2E contra Vinted.
 - No modificar `sessions/`.
 - No ejecutar `--publish`.
@@ -60,10 +63,15 @@ a favoritos. No se envía ningún mensaje en esta fase.
 ## Criterios de aceptación
 
 - `vinted reply --dry-run` recorre cuentas sin exigir plantilla ni abrir navegador.
-- El modo real navega a `/member/notifications`, recoge máximo 40 favoritos, abre
-  pestañas secuencialmente, para al detectar `offer-current-price-label` y no envía
-  mensajes.
+- El modo real navega a `/member/notifications`, recoge máximo 40 favoritos y
+  abre pestañas secuencialmente; para al detectar `offer-current-price-label`.
+  En esta fase no enviaba mensajes; el plan 028 añade la oferta y el mensaje.
 - El scheduler registra publicación y reply; el próximo reply se programa 30-60 min
   después de cada ejecución.
 - Dos comandos/jobs no pisan Selenium gracias al lock global.
 - `ruff`, `mypy` y `pytest` en verde.
+
+## Resultado
+
+- Inspección, lock, scheduler aleatorio y CLI verificados con tests unitarios y
+  comprobaciones en `--dry-run`. El envío de respuestas continúa en el plan 028.

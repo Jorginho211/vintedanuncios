@@ -2,9 +2,9 @@
 
 Herramienta local que recorre `Data/<Cuenta>/<Categoría>/<Anuncio>/`, lee la
 caption del nombre de cada archivo de foto y publica los anuncios en Vinted.
-Además ejecuta `vinted reply` para inspeccionar notificaciones de favoritos
-(sin enviar mensajes en esta fase) y el scheduler puede programar esa inspección
-cada 30-60 minutos de forma aleatoria (plan 027).
+Además ejecuta `vinted reply` para responder a los favoritos pendientes: ofrece
+2 € menos que el precio anterior y envía una plantilla. El scheduler puede
+programar ese barrido cada 30-60 minutos de forma aleatoria (planes 027 y 028).
 
 **Predeterminado seguro:** sin `--publish` el programa solo valida y muestra lo
 que haría. Los tres modos (`--dry-run`, `--simulate-send`, `--publish`) son
@@ -26,16 +26,16 @@ cp Data/reply_added_favorites.txt.example Data/reply_added_favorites.txt
 |---|---|---|
 | `Data/config.json` | `Data/config.json.example` | Títulos por categoría y variante de marca |
 | `Data/description.txt` | `Data/description.txt.example` | Descripción común (se usa tal cual) |
-| `Data/reply_added_favorites.txt` | `Data/reply_added_favorites.txt.example` | Plantilla reservada para el envío futuro de respuestas |
+| `Data/reply_added_favorites.txt` | `Data/reply_added_favorites.txt.example` | Mensaje enviado a cada favorito pendiente |
 
 **`config.json` y `description.txt` son obligatorios para publicar** (`vinted
 publish` y `vinted sweep`). Si falta alguno, el programa se detiene con un error
 que indica qué plantilla copiar y termina con código 1: no escanea ni publica.
 
-`vinted reply` inspecciona notificaciones de favoritos por cuenta: solo necesita
-el árbol `Data/<Cuenta>/`. No lee `config.json`, `description.txt` ni la plantilla
-de respuesta en esta fase. Si no hay carpetas de cuenta, avisa y termina con
-código 0.
+`vinted reply` responde notificaciones de favoritos por cuenta: solo necesita
+el árbol `Data/<Cuenta>/` y, salvo en `--dry-run`, la plantilla
+`reply_added_favorites.txt`. No lee `config.json` ni `description.txt`. Si no hay
+carpetas de cuenta, avisa y termina con código 0.
 
 ## Uso con Docker
 
@@ -123,7 +123,7 @@ Este modo rellena fotos, título, descripción, precio, categoría, marca, color
 estado y envío; vuelve atrás descartando los cambios y borra únicamente las
 carpetas `Data/<Cuenta>/<Categoría>/<Anuncio>/`. Conserva las carpetas de cuenta
 y de categoría. Los barridos ya no revisan favoritos; `vinted reply
---simulate-send` simula las respuestas sin escribir en Vinted.
+--simulate-send` solo inspecciona y registra lo que haría, sin escribir en Vinted.
 Haz una copia de `Data/` si quieres repetir la prueba.
 
 Para publicar de verdad (solo cuando tú lo decidas), levanta Selenium y ejecuta:
@@ -146,13 +146,13 @@ Con `--schedule` se registran `publicacion_diaria` (16:00, `TIMEZONE`) y
 minutos tras cada ejecución. Ambos jobs usan un lock global de Selenium para no
 pisar sesiones.
 
-## Publicar e inspeccionar por separado
+## Publicar y responder por separado
 
 ```bash
 # Solo publica anuncios pendientes; no inspecciona favoritos
 poetry run vinted publish --dry-run
 
-# Inspecciona favoritos en cada cuenta; no escanea ni publica ni envía mensajes
+# Solo inspecciona favoritos; no escanea ni publica ni escribe en Vinted
 poetry run vinted reply --dry-run
 
 # Barrido de publicación bajo demanda (igual que `vinted --dry-run`)
@@ -160,12 +160,19 @@ poetry run vinted sweep --dry-run
 
 # Barrido real sin pulsar Subir (borra las carpetas de anuncio)
 poetry run vinted sweep --simulate-send
+
+# Responde favoritos de verdad (único modo que escribe en Vinted)
+poetry run vinted reply --publish
 ```
 
-`vinted`, `publish` y `sweep` publican sin inspeccionar favoritos. `vinted reply`
+`vinted`, `publish` y `sweep` publican sin revisar favoritos. `vinted reply`
 inspecciona notificaciones en `/member/notifications`, recoge hasta 40 wrappers
-con “a sus favoritos”, abre cada una en pestaña secuencialmente y se detiene si
-detecta `offer-current-price-label`. Esta fase no envía respuestas.
+con “a sus favoritos” y abre cada una en pestaña secuencialmente. En cada
+conversación pendiente lee el precio anterior del placeholder de la modal,
+ofrece 2 € menos con coma decimal y envía `reply_added_favorites.txt` pulsando
+Enter. Al detectar `offer-current-price-label` no actúa y detiene el barrido de
+esa cuenta. Solo `--publish` realiza esas escrituras: los demás modos registran
+lo que harían.
 
 ## Verificar una sesión
 
@@ -216,9 +223,9 @@ documenta con sus valores por defecto:
 | `PAUSE_BETWEEN_ACCOUNTS` | `0` | Pausa entre cuentas |
 | `TIMEZONE` | `Europe/Madrid` | Zona horaria de los jobs (`TZ` es ignorada) |
 
-La inspección de favoritos se programa con intervalo aleatorio real de 30-60
+La respuesta de favoritos se programa con intervalo aleatorio real de 30-60
 minutos entre ejecuciones. Las pausas `SELENIUM_ACTION_DELAY_*` se aplican a todo
-el flujo con navegador (formulario e inspección de favoritos) para dar tiempo al
+el flujo con navegador (formulario y reply) para dar tiempo al
 DOM a actualizarse; `--dry-run` no usa Selenium y por eso no se retrasa. Pon ambos
 valores a `0` para desactivarlas.
 

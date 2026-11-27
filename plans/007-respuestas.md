@@ -1,8 +1,9 @@
 # Plan 007 — Respuestas al primer mensaje
 
-**Estado:** estructura implementada; ubicación de la alerta pendiente de confirmar.
-El reply automático está retirado temporalmente del barrido y del scheduler
-(plan 023); el comando manual `vinted reply` sigue disponible.
+**Estado:** completado. La ubicación de la alerta se confirmó en notificaciones
+(plan 027) y el envío de la oferta y del mensaje se implementó en el plan 028.
+El comando manual `vinted reply` sigue disponible; el scheduler lo programa
+según el plan 027.
 
 **Objetivo:** responder una sola vez a las conversaciones nuevas avisadas por favorito.
 
@@ -13,9 +14,11 @@ El reply automático está retirado temporalmente del barrido y del scheduler
 
 **Tareas realizadas**
 - `config.load_reply_template`.
-- `replier.py` con la lógica de detección y envío.
+- Detección en `/member/notifications` (plan 027).
+- Oferta de 2 € menos y envío de la plantilla con Enter (plan 028).
 - Logs sin texto de mensajes.
 
 **Pendiente**
-- Confirmar si la alerta está en notificaciones, mensajes o ambos.
-- Crear `Data/reply_added_favorites.txt` con el texto definitivo.
+- Verificar manualmente la modal y los selectores del reply con
+  `docs/checklist.md` antes de usar `vinted reply --publish`.
+- Mantener `Data/reply_added_favorites.txt` con el texto definitivo.

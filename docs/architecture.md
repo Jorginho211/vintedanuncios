@@ -2,10 +2,11 @@
 
 ## Visión general
 
-La publicación corre una vez al día y también se lanza bajo demanda. La inspección
-de favoritos se ejecuta bajo demanda (`vinted reply`) y, con `--schedule`, cada
-30-60 minutos con intervalo aleatorio real. En esta fase inspecciona notificaciones
-sin enviar mensajes (plan 027). `cli` y `scheduler` leen el entorno una sola vez,
+La publicación corre una vez al día y también se lanza bajo demanda. La respuesta
+a favoritos se ejecuta bajo demanda (`vinted reply`) y, con `--schedule`, cada
+30-60 minutos con intervalo aleatorio real. Abre cada conversación pendiente,
+ofrece 2 € menos y envía la plantilla; solo con `--publish` escribe en Vinted
+(planes 027 y 028). `cli` y `scheduler` leen el entorno una sola vez,
 construyen `Settings` y `Mode` y los inyectan. Por defecto trabaja en simulación;
 solo con `--publish` escribe en Vinted. `--simulate-send` recorre el formulario
 real sin pulsar «Subir».
@@ -24,7 +25,8 @@ cli / scheduler  ->  Settings + Mode
           |
    runtime elige adapters reales o no-op
 
-cli / scheduler -> run_reply -> reply_favorites.scan_favorites
+cli / scheduler -> run_reply -> reply_favorites.scan_favorites(template)
+                                -> oferta + mensaje solo con --publish
                                -> lock Selenium + perfil por cuenta
 ```
 
@@ -36,21 +38,22 @@ cli / scheduler -> run_reply -> reply_favorites.scan_favorites
 | `shared/config.py` | `config.json`, descripción y validación de árboles de datos | Solo lectura de `Data/` |
 | `shared/models.py` | Datos inmutables y `Mode` | No |
 | `shared/ports.py` | Contratos: driver, publisher, replier, store, runtime | No |
+| `shared/offers.py` | Cálculo del precio de la oferta con `Decimal` | No |
 | `shared/pause.py` | Pausas configurables | No |
 | `shared/selenium_lock.py` | Lock global cross-process para Selenium | Fichero en `profiles_dir` |
 | `shared/logging_conf.py` | Configuración de logs | No |
 | `adapters/selectors.py` | Selectores CSS y textos de Vinted | No |
 | `adapters/selenium_driver.py` | Driver remoto por cuenta | Sí |
 | `adapters/vinted_publisher.py` | Formulario de publicación | Sí |
-| `adapters/vinted_replier.py` | Inspección de notificaciones de favorito | Sí |
+| `adapters/vinted_replier.py` | Oferta y mensaje en notificaciones de favorito | Sí |
 | `adapters/vinted_wait.py` | Esperas, scroll y pestañas compartidas | Sí |
 | `adapters/filesystem.py` | Borrado de carpetas | Sí |
 | `features/scan_listings/` | Query que resuelve los anuncios del árbol | No |
 | `features/check_session/` | Abre Vinted con un perfil para verificar la sesión a mano | Indirecto |
 | `features/publish_listings/` | Command de publicación + simulación | No |
-| `features/reply_favorites/` | Command de inspección de favoritos + simulación | No |
+| `features/reply_favorites/` | Command de respuesta de favoritos + simulación | No |
 | `features/run_sweep/` | Orquestación de publicación y reply; selección de adapters según `Mode` | Indirecto |
-| `scheduler.py` | Cron de publicación y job aleatorio de inspección de favoritos | No |
+| `scheduler.py` | Cron de publicación y job aleatorio de respuesta de favoritos | No |
 | `cli.py` | Composition root de Typer | No |
 
 ## Contrato de datos
@@ -93,14 +96,19 @@ del desplegable que la contiene (`W32` o `ES42`); sin opción, error sin publica
 Descripción: contenido de `Data/description.txt` con `{{TALLA}}` sustituido por
 la talla calculada.
 
-Respuesta futura: `Data/reply_added_favorites.txt` queda reservado para el plan
-de envío; la inspección actual no lo usa ni lo valida.
+Respuesta: `Data/reply_added_favorites.txt` es el mensaje que se envía a cada
+favorito pendiente. El precio anterior se lee del placeholder
+`XX,XX €` de `[data-testid="offer-price-field--input"]`, se restan `2,00` con
+`Decimal` y se escribe como `XX,XX` antes de pulsar
+`[data-testid="offer-submit-button"]`. El mensaje se escribe en
+`[data-testid="composer--input"]` y se envía con Enter.
 
 Los archivos `config.json` y `description.txt` son obligatorios para
 `run_publish` y `run_sweep`: `validate_data_dir()` se ejecuta una sola vez y `cli`
 termina con código 1 si falta alguno. `run_reply` valida el árbol de cuentas con
-`validate_reply_data_dir()`; sin cuentas avisa y termina con código 0. No exige
-plantilla de respuesta en la fase de inspección.
+`validate_reply_data_dir()`; sin cuentas avisa y termina con código 0. En
+`--dry-run` no exige plantilla; en los modos reales la lee con
+`load_reply_template()` y falla si falta o está vacía.
 
 ## Variables de entorno
 
@@ -144,11 +152,13 @@ Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
   comando manual. Todos comparten el mismo runtime.
 - **Simulación por composición:** en `Mode.DRY_RUN` el runtime devuelve publishers
   y store de no-op y no crea ningún driver. En `Mode.SIMULATE_SEND` usa el
-  publisher real con `submit=False`, store real y, si se invoca `vinted reply`,
-  replier simulado. En `Mode.CHECK_SUBMIT` usa el publisher real con
-  `check_submit=True` y store de no-op: rellena el formulario, registra el estado
-  de los campos y del botón «Subir» y descarta los cambios sin publicar ni borrar
-  carpetas. Los handlers no reciben flags `dry_run` ni drivers nulos.
+  publisher real con `submit=False` y store real; si se invoca `vinted reply`,
+  usa el replier real con `send=False`: abre y lee, pero no escribe. En
+  `Mode.CHECK_SUBMIT` usa el publisher real con `check_submit=True` y store de
+  no-op: rellena el formulario, registra el estado de los campos y del botón
+  «Subir» y descarta los cambios sin publicar ni borrar carpetas. Solo
+  `Mode.PUBLISH` crea un replier con `send=True`. Los handlers no reciben flags
+  `dry_run` ni drivers nulos.
 - **Sesión perezosa:** el driver se crea solo para cuentas con trabajo. Tras la
   última acción de la cuenta se cierra. `Runtime.release(account)` lo garantiza
   con `try/finally`.
@@ -181,7 +191,9 @@ Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
   automática ni escritura en Vinted.
 - Procesamiento **secuencial** de cuentas (una sola sesión activa por vez).
 - Pausas configurables por estabilidad, no para evadir controles.
-- Un error en un anuncio se registra y no aborta el barrido.
+- Un error en un anuncio se registra y no aborta el barrido. En `reply`, un
+  precio ilegible, ≤ 2 € o un fallo al escribir se registran por notificación y
+  se continúa con la siguiente; no se reintenta una oferta ya aceptada.
 - Borrado de la carpeta hoja del anuncio tras confirmación de Vinted (`--publish`)
   o al terminar `--simulate-send`. `FilesystemListingStore.delete()` exige que la
   ruta esté dentro de `DATA_DIR` y tenga exactamente tres niveles: nunca borra
@@ -192,8 +204,9 @@ Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
   con intervalo aleatorio real de 30-60 minutos, ambos con `max_instances=1`,
   `coalesce=True` y lock global de Selenium. `respuesta_favoritos` se reprograma
   tras cada ejecución.
-- **CLI por subcomando:** `publish` y `sweep` publican; `reply` inspecciona
-  favoritos sin enviar mensajes. `--schedule` arranca los jobs programados.
+- **CLI por subcomando:** `publish` y `sweep` publican; `reply` ofrece 2 € menos
+  y envía la plantilla a favoritos pendientes, pero solo escribe con
+  `--publish`. `--schedule` arranca los jobs programados.
 
 ## Selectores del formulario real
 
@@ -217,12 +230,24 @@ Material y modelo no se cubren: este último no existe en el DOM de Vinted para
 las categorías usadas; se concatena al título. El campo de talla se rellena con
 la talla calculada y sus selectores se validaron con `--simulate-send`.
 
+## Selectores del reply
+
+| Paso | Selector |
+|---|---|
+| Ya respondida | `[data-testid="offer-current-price-label"]` |
+| Precio anterior | `[data-testid="offer-price-field--input"]` (atributo `placeholder`) |
+| Enviar oferta | `[data-testid="offer-submit-button"]` |
+| Mensaje | `[data-testid="composer--input"]` (se envía con Enter) |
+
+Estos selectores se validan a mano con `docs/checklist.md`; no hay E2E
+automatizado contra Vinted (plan 028).
+
 ## Riesgos conocidos / pendientes
 
-- El flujo de reply está en fase de inspección (plan 027): detecta notificaciones
-  en `/member/notifications`, filtra `a sus favoritos`, abre pestañas y para ante
-  `offer-current-price-label`, pero no envía mensajes. Validar selectores y
-  semántica del marcador con `docs/checklist.md` antes del plan de envío.
+- El flujo de reply detecta notificaciones en `/member/notifications`, filtra
+  `a sus favoritos`, abre pestañas y para ante `offer-current-price-label`; en
+  las pendientes ofrece 2 € menos y envía la plantilla solo con `--publish`.
+  Verificar la modal y el orden de acciones con `docs/checklist.md`.
 - La caption se lee del nombre del archivo con `pathlib.stem`; no se usan metadatos ni librerías externas.
 - El perfil de Firefox en `sessions/<Cuenta>/` se comprueba entre ejecuciones con
   `vinted check-session <Cuenta>` (planes 014 y 020). Si Vinted expulsa la sesión
