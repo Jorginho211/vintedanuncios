@@ -22,17 +22,23 @@ def handle(
     stopped_reason = "no_accounts"
     for index, account in enumerate(command.accounts):
         try:
-            result = replier_for(account).scan_favorites()
+            result = replier_for(account).scan_favorites(command.template)
             for error in result.errors:
                 logger.error("[%s] %s", account, error)
             for notice in result.notifications:
                 state = "respondida" if notice.replied else "pendiente"
+                detail = (
+                    f"; oferta {notice.offered_price}" if notice.offered_price is not None else ""
+                )
+                sent = "; mensaje enviado" if notice.message_sent else ""
                 logger.info(
-                    "[%s] Favorito %s %s (%s)",
+                    "[%s] Favorito %s %s (%s)%s%s",
                     account,
                     notice.notification_id,
                     state,
                     notice.url,
+                    detail,
+                    sent,
                 )
             notifications.extend(result.notifications)
             errors.extend(result.errors)

@@ -64,6 +64,9 @@ XPATH_DISCARD_CHANGES = (
 SELECTOR_NOTIFICATION = "[data-vinted='notification']"
 SELECTOR_NOTIFICATION_WRAPPER = '[data-testid="inbox-notification-intersection-wrapper"]'
 SELECTOR_REPLIED_MARKER = '[data-testid="offer-current-price-label"]'
+SELECTOR_OFFER_PRICE_INPUT = '[data-testid="offer-price-field--input"]'
+SELECTOR_OFFER_SUBMIT = '[data-testid="offer-submit-button"]'
+SELECTOR_COMPOSER_INPUT = '[data-testid="composer--input"]'
 SELECTOR_CONVERSATION = "[data-vinted='conversation']"
 SELECTOR_MESSAGE_OUT = "[data-vinted='message-out']"
 SELECTOR_MESSAGE_INPUT = "[data-vinted-field='message']"

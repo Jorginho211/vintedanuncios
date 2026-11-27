@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
-from .models import FavoriteScanResult, Listing, PublishResult, ReplyResult
+from .models import FavoriteScanResult, Listing, PublishResult
 
 
 class ElementPort(Protocol):
@@ -57,9 +57,7 @@ class ListingPublisher(Protocol):
 
 
 class FavoriteReplier(Protocol):
-    def scan_favorites(self) -> FavoriteScanResult: ...
-
-    def reply(self, template: str) -> ReplyResult: ...
+    def scan_favorites(self, template: str | None) -> FavoriteScanResult: ...
 
 
 class ListingStore(Protocol):

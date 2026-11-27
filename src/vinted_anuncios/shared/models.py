@@ -53,12 +53,6 @@ class PublishResult:
 
 
 @dataclass(frozen=True, slots=True)
-class ReplyResult:
-    replied: tuple[str, ...]
-    errors: tuple[str, ...]
-
-
-@dataclass(frozen=True, slots=True)
 class FavoriteNotification:
     """Notificación de favorito inspeccionada, sin datos personales."""
 
@@ -66,6 +60,9 @@ class FavoriteNotification:
     url: str
     notification_id: str
     replied: bool
+    previous_price: str | None = None
+    offered_price: str | None = None
+    message_sent: bool = False
 
 
 @dataclass(frozen=True, slots=True)

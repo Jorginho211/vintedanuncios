@@ -21,7 +21,6 @@ from vinted_anuncios.shared.models import (
     Listing,
     Mode,
     PublishResult,
-    ReplyResult,
 )
 from vinted_anuncios.shared.ports import (
     DriverPort,
@@ -82,24 +81,20 @@ class RecordingPublisher:
 
 
 class StubReplier:
-    def scan_favorites(self) -> FavoriteScanResult:
+    def scan_favorites(self, template: str | None) -> FavoriteScanResult:
         return FavoriteScanResult((), "no_more", ())
-
-    def reply(self, template: str) -> ReplyResult:
-        return ReplyResult((), ())
 
 
 class RecordingReplier:
     def __init__(self, result: FavoriteScanResult) -> None:
         self.result = result
         self.scans = 0
+        self.templates: list[str | None] = []
 
-    def scan_favorites(self) -> FavoriteScanResult:
+    def scan_favorites(self, template: str | None) -> FavoriteScanResult:
         self.scans += 1
+        self.templates.append(template)
         return self.result
-
-    def reply(self, template: str) -> ReplyResult:
-        return ReplyResult((), ())
 
 
 class FakeRuntime:
@@ -148,15 +143,18 @@ class StubVintedPublisher:
 
 class StubVintedReplier:
     def __init__(
-        self, driver: DriverPort, settings: Settings, logger: logging.Logger, account: str = ""
+        self,
+        driver: DriverPort,
+        settings: Settings,
+        logger: logging.Logger,
+        account: str = "",
+        *,
+        send: bool = False,
     ) -> None:
         pass
 
-    def scan_favorites(self) -> FavoriteScanResult:
+    def scan_favorites(self, template: str | None) -> FavoriteScanResult:
         return FavoriteScanResult((), "no_more", ())
-
-    def reply(self, template: str) -> ReplyResult:
-        return ReplyResult((), ())
 
 
 def _settings(tmp_path: Path) -> Settings:
@@ -187,6 +185,12 @@ def _prepare_accounts(tmp_path: Path, *accounts: str) -> Path:
     for name in accounts:
         (data_dir / name).mkdir()
     return data_dir
+
+
+def _prepare_template(data_dir: Path) -> str:
+    text = "Gracias por tu interés"
+    (data_dir / "reply_added_favorites.txt").write_text(text, encoding="utf-8")
+    return text
 
 
 def _patch_factory(
@@ -282,6 +286,7 @@ def test_confirmacion_fallida_no_borra_carpeta(tmp_path: Path) -> None:
 
 def test_run_reply_recorre_las_cuentas_desde_data(tmp_path: Path) -> None:
     data_dir = _prepare_accounts(tmp_path, "CuentaB", "CuentaA")
+    template = _prepare_template(data_dir)
     replier = RecordingReplier(FavoriteScanResult((), "no_more", ()))
     runtime = FakeRuntime(
         RecordingPublisher(PublishResult(ok=True, message="publicado")),
@@ -298,6 +303,7 @@ def test_run_reply_recorre_las_cuentas_desde_data(tmp_path: Path) -> None:
 
     assert runtime.replier_accounts == ["CuentaA", "CuentaB"]
     assert replier.scans == 2
+    assert replier.templates == [template, template]
     assert not (data_dir / "config.json").exists()
     assert runtime.closed is True
 
@@ -338,6 +344,15 @@ def test_run_reply_no_exige_plantilla(tmp_path: Path) -> None:
     )
 
     assert replier.scans == 1
+    assert replier.templates == [None]
+
+
+@pytest.mark.parametrize("mode", [Mode.PUBLISH, Mode.SIMULATE_SEND, Mode.CHECK_SUBMIT])
+def test_run_reply_real_exige_plantilla(tmp_path: Path, mode: Mode) -> None:
+    _prepare_accounts(tmp_path, "CuentaA")
+
+    with pytest.raises(ConfigError, match="reply_added_favorites.txt"):
+        run_reply(_settings(tmp_path), mode, logger=LOGGER)
 
 
 def test_run_reply_sin_data_falla(tmp_path: Path) -> None:
@@ -362,7 +377,7 @@ def test_run_reply_dry_run_no_crea_navegador(
 def test_run_reply_publish_crea_y_cierra_driver_por_cuenta(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _prepare_accounts(tmp_path, "CuentaA", "CuentaB")
+    _prepare_template(_prepare_accounts(tmp_path, "CuentaA", "CuentaB"))
     created: list[str] = []
     closed: list[DriverPort] = []
     _patch_factory(monkeypatch, created, closed)
@@ -387,4 +402,42 @@ def test_runtime_publish_usa_replier_real(tmp_path: Path, monkeypatch: pytest.Mo
     runtime = SeleniumRuntime(_settings(tmp_path), Mode.PUBLISH, ("Cuenta",), LOGGER)
     replier = runtime.replier_for("Cuenta")
     assert isinstance(replier, StubVintedReplier) is False
+    runtime.close()
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        (Mode.PUBLISH, True),
+        (Mode.SIMULATE_SEND, False),
+        (Mode.CHECK_SUBMIT, False),
+    ],
+)
+def test_runtime_pasa_send_segun_modo(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: Mode,
+    expected: bool,
+) -> None:
+    created: list[str] = []
+    closed: list[DriverPort] = []
+    _patch_factory(monkeypatch, created, closed)
+    captured: dict[str, bool] = {}
+
+    class CaptureReplier(StubVintedReplier):
+        def __init__(
+            self,
+            driver: DriverPort,
+            settings: Settings,
+            logger: logging.Logger,
+            account: str = "",
+            *,
+            send: bool = False,
+        ) -> None:
+            captured["send"] = send
+
+    monkeypatch.setattr(runtime_module, "VintedFavoriteReplier", CaptureReplier)
+    runtime = SeleniumRuntime(_settings(tmp_path), mode, ("Cuenta",), LOGGER)
+    runtime.replier_for("Cuenta")
+    assert captured["send"] is expected
     runtime.close()

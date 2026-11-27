@@ -3,7 +3,12 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from ...shared.config import load_config, validate_data_dir, validate_reply_data_dir
+from ...shared.config import (
+    load_config,
+    load_reply_template,
+    validate_data_dir,
+    validate_reply_data_dir,
+)
 from ...shared.models import Mode, ScanResult
 from ...shared.ports import Runtime
 from ...shared.selenium_lock import selenium_lock
@@ -39,18 +44,19 @@ def _publish(
 def _reply(
     runtime: Runtime,
     accounts: tuple[str, ...],
+    template: str | None,
     settings: Settings,
     logger: logging.Logger,
 ) -> None:
     result = reply_handler.handle(
-        ScanFavoriteNotifications(accounts=accounts),
+        ScanFavoriteNotifications(accounts=accounts, template=template),
         replier_for=runtime.replier_for,
         logger=logger,
         pause_seconds=settings.pause_between_accounts,
         release=runtime.release,
     )
     logger.info(
-        "Inspección de favoritos completada: %s notificaciones, motivo=%s, errores=%s",
+        "Respuesta de favoritos completada: %s notificaciones, motivo=%s, errores=%s",
         len(result.notifications),
         result.stopped_reason,
         len(result.errors),
@@ -95,19 +101,21 @@ def run_reply(
     logger: logging.Logger,
     runtime_factory: RuntimeFactory = SeleniumRuntime,
 ) -> None:
-    """Inspecciona favoritos en cada cuenta; no envía respuestas ni publica anuncios."""
+    """Responde favoritos pendientes en cada cuenta; no publica anuncios."""
     validate_reply_data_dir(settings.data_dir)
     accounts = _accounts(settings)
     if not accounts:
         logger.warning(
-            "No hay carpetas de cuenta en %s; no se inspeccionan favoritos", settings.data_dir
+            "No hay carpetas de cuenta en %s; no se responden favoritos", settings.data_dir
         )
         return
+
+    template = None if mode is Mode.DRY_RUN else load_reply_template(settings.data_dir)
 
     if mode is Mode.DRY_RUN:
         runtime = runtime_factory(settings, mode, accounts, logger)
         try:
-            _reply(runtime, accounts, settings, logger)
+            _reply(runtime, accounts, template, settings, logger)
         finally:
             runtime.close()
         return
@@ -115,7 +123,7 @@ def run_reply(
     with selenium_lock(settings, logger):
         runtime = runtime_factory(settings, mode, accounts, logger)
         try:
-            _reply(runtime, accounts, settings, logger)
+            _reply(runtime, accounts, template, settings, logger)
         finally:
             runtime.close()
 

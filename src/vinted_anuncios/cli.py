@@ -17,7 +17,9 @@ from .shared.settings import SettingsError, load_settings
 
 app = typer.Typer(help="Publicador local de anuncios de Vinted (modo simulación por defecto)")
 
-PublishOption = Annotated[bool, typer.Option("--publish", help="Publica de verdad en Vinted")]
+PublishOption = Annotated[
+    bool, typer.Option("--publish", help="Ejecuta las acciones reales en Vinted")
+]
 DryRunOption = Annotated[bool, typer.Option("--dry-run", help="Fuerza la simulación (por defecto)")]
 SimulateSendOption = Annotated[
     bool,
@@ -141,7 +143,7 @@ def reply_command(
     simulate_send: SimulateSendOption = False,
     check_submit: CheckSubmitOption = False,
 ) -> None:
-    """Inspecciona notificaciones de favoritos por cuenta; no envía respuestas."""
+    """Responde favoritos pendientes; solo escribe en Vinted con --publish."""
     _execute(
         run_reply,
         publish=publish,

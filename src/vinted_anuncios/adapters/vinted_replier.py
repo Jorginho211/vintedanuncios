@@ -11,16 +11,22 @@ from selenium.common.exceptions import (
     WebDriverException,
 )
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 
-from ..shared.models import FavoriteNotification, FavoriteScanResult, ReplyResult
+from ..shared import offers
+from ..shared.models import FavoriteNotification, FavoriteScanResult
+from ..shared.offers import OfferPriceError
 from ..shared.pause import ActionPacer
 from ..shared.ports import DriverPort, ElementPort
 from ..shared.settings import Settings
 from . import selectors
 from .vinted_wait import (
+    click_css,
     close_current_tab,
+    fill,
     open_tab,
     scroll_window,
+    send_keys_css,
     wait_for,
     wait_for_all,
     wait_for_page_ready,
@@ -59,7 +65,7 @@ def _target_url(element: ElementPort, driver: DriverPort) -> str:
 
 
 class VintedFavoriteReplier:
-    """Inspecciona avisos de favorito con un driver real, sin responder."""
+    """Responde a favoritos no contestados con un driver real."""
 
     def __init__(
         self,
@@ -67,11 +73,14 @@ class VintedFavoriteReplier:
         settings: Settings,
         logger: logging.Logger,
         account: str = "",
+        *,
+        send: bool = False,
     ) -> None:
         self._driver = driver
         self._settings = settings
         self._logger = logger
         self._account = account
+        self._send = send
         self._pacer = ActionPacer(settings.action_delay_min, settings.action_delay_max)
 
     def _pace(self) -> None:
@@ -128,7 +137,64 @@ class VintedFavoriteReplier:
 
         return targets
 
-    def scan_favorites(self) -> FavoriteScanResult:
+    def _is_replied(self, timeout: float) -> bool:
+        try:
+            wait_for(self._driver, selectors.SELECTOR_REPLIED_MARKER, min(timeout, 5.0))
+            return True
+        except TimeoutException:
+            return False
+
+    def _offer_and_message(
+        self, notification_id: str, template: str | None
+    ) -> tuple[str | None, str | None, bool, str | None]:
+        """Devuelve precio anterior, precio ofertado, envío y error opcional."""
+        timeout = self._settings.wait_seconds
+        try:
+            price_input = wait_for(self._driver, selectors.SELECTOR_OFFER_PRICE_INPUT, timeout)
+            previous = offers.parse_previous_price(price_input.get_attribute("placeholder"))
+        except (OfferPriceError, NoSuchElementException, TimeoutException) as exc:
+            return None, None, False, f"notificación {notification_id}: {exc}"
+
+        previous_price = offers.format_price(previous)
+        offered_price = offers.format_price(previous - offers.DISCOUNT)
+
+        if not self._send:
+            self._logger.info(
+                "[%s] En %s se ofrecería %s y se enviaría la plantilla",
+                self._account,
+                notification_id,
+                offered_price,
+            )
+            return previous_price, offered_price, False, None
+
+        if template is None:
+            return (
+                previous_price,
+                offered_price,
+                False,
+                f"notificación {notification_id}: falta la plantilla de respuesta",
+            )
+
+        try:
+            self._pace()
+            fill(self._driver, selectors.SELECTOR_OFFER_PRICE_INPUT, offered_price, timeout)
+            self._pace()
+            click_css(self._driver, selectors.SELECTOR_OFFER_SUBMIT, timeout)
+            self._pace()
+            send_keys_css(self._driver, selectors.SELECTOR_COMPOSER_INPUT, template, timeout)
+            self._pace()
+            send_keys_css(self._driver, selectors.SELECTOR_COMPOSER_INPUT, Keys.ENTER, timeout)
+            self._pace()
+        except (NoSuchElementException, TimeoutException, WebDriverException) as exc:
+            return (
+                previous_price,
+                offered_price,
+                False,
+                f"notificación {notification_id}: fallo al responder ({exc})",
+            )
+        return previous_price, offered_price, True, None
+
+    def scan_favorites(self, template: str | None) -> FavoriteScanResult:
         timeout = self._settings.wait_seconds
         driver = self._driver
         notifications: list[FavoriteNotification] = []
@@ -150,7 +216,7 @@ class VintedFavoriteReplier:
                 return FavoriteScanResult((), "no_more", ())
 
             targets = self._collect_favorites(driver)
-            self._logger.info("Encontrados %s favoritos para inspeccionar", len(targets))
+            self._logger.info("Encontrados %s favoritos para responder", len(targets))
             main_handle = driver.current_window_handle
 
             for target in targets:
@@ -166,26 +232,39 @@ class VintedFavoriteReplier:
                             "La notificación %s tardó en quedar lista", target.notification_id
                         )
                     self._pause(1.2, 2.8)
-                    try:
-                        wait_for(driver, selectors.SELECTOR_REPLIED_MARKER, min(timeout, 5.0))
-                        replied = True
-                    except TimeoutException:
-                        replied = False
+
+                    if self._is_replied(timeout):
+                        notifications.append(
+                            FavoriteNotification(
+                                account=self._account,
+                                url=target.url,
+                                notification_id=target.notification_id,
+                                replied=True,
+                            )
+                        )
+                        stopped_reason = "replied_found"
+                        self._logger.info(
+                            "Detectada conversación respondida en %s; se detiene el barrido",
+                            target.notification_id,
+                        )
+                        break
+
+                    previous_price, offered_price, sent, error = self._offer_and_message(
+                        target.notification_id, template
+                    )
+                    if error is not None:
+                        errors.append(error)
                     notifications.append(
                         FavoriteNotification(
                             account=self._account,
                             url=target.url,
                             notification_id=target.notification_id,
-                            replied=replied,
+                            replied=False,
+                            previous_price=previous_price,
+                            offered_price=offered_price,
+                            message_sent=sent,
                         )
                     )
-                    if replied:
-                        stopped_reason = "replied_found"
-                        self._logger.info(
-                            "Detectada conversación respondida en %s; se detiene la inspección",
-                            target.notification_id,
-                        )
-                        break
                 except (NoSuchElementException, TimeoutException, WebDriverException) as exc:
                     errors.append(f"notificación {target.notification_id}: {exc}")
                 finally:
@@ -209,10 +288,3 @@ class VintedFavoriteReplier:
             stopped_reason=stopped_reason,
             errors=tuple(errors),
         )
-
-    def reply(self, template: str) -> ReplyResult:
-        self._logger.warning(
-            "El envío automático de respuestas está desactivado en esta fase; se omite '%s'",
-            template[:30],
-        )
-        return ReplyResult(replied=(), errors=())

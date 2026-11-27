@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class ScanFavoriteNotifications:
-    """Comando: inspeccionar avisos de favorito sin responder."""
+    """Comando: responder a los avisos de favorito aún no contestados."""
 
     accounts: tuple[str, ...]
+    template: str | None = None

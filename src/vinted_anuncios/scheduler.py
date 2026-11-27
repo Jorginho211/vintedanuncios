@@ -40,7 +40,7 @@ def start(
     randint: Callable[[int, int], int] = random.randint,
     now: Callable[[], datetime] | None = None,
 ) -> None:
-    """Mantiene el proceso vivo con jobs de publicación y de inspección de favoritos."""
+    """Mantiene el proceso vivo con jobs de publicación y de respuesta de favoritos."""
 
     clock = now or (lambda: datetime.now(settings.timezone))
     active_scheduler = scheduler or BlockingScheduler(timezone=settings.timezone)
@@ -58,7 +58,7 @@ def start(
             )
         else:
             active_scheduler.reschedule_job(REPLY_JOB_ID, trigger=trigger)
-        logger.info("Próxima inspección de favoritos: %s", next_run.isoformat())
+        logger.info("Próxima respuesta de favoritos: %s", next_run.isoformat())
 
     def run_reply_job() -> None:
         try:
