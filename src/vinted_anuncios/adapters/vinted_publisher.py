@@ -11,6 +11,7 @@ from selenium.common.exceptions import (
     UnexpectedAlertPresentException,
     WebDriverException,
 )
+from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -369,6 +370,8 @@ class VintedListingPublisher:
             raise RuntimeError("Vinted no ofreció colores")
         self._step("color: elegir opción")
         click_xpath(driver, xpath, timeout)
+        self._pace()
+        send_keys_css(driver, "body", Keys.ESCAPE, timeout)
         self._pace()
 
     def _choose_condition(self) -> None:
