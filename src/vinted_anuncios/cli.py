@@ -34,7 +34,11 @@ CheckSubmitOption = Annotated[
     ),
 ]
 ScheduleOption = Annotated[
-    bool, typer.Option("--schedule", help="Queda vivo y ejecuta el job de publicación programado")
+    bool,
+    typer.Option(
+        "--schedule",
+        help="Queda vivo y ejecuta los jobs programados de publicación y favoritos",
+    ),
 ]
 
 
@@ -137,7 +141,7 @@ def reply_command(
     simulate_send: SimulateSendOption = False,
     check_submit: CheckSubmitOption = False,
 ) -> None:
-    """Revisa favoritos de cada cuenta; no escanea ni publica anuncios."""
+    """Inspecciona notificaciones de favoritos por cuenta; no envía respuestas."""
     _execute(
         run_reply,
         publish=publish,

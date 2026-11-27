@@ -61,9 +61,11 @@ class SeleniumRuntime:
         )
 
     def replier_for(self, account: str) -> FavoriteReplier:
-        if self._mode in (Mode.DRY_RUN, Mode.SIMULATE_SEND, Mode.CHECK_SUBMIT):
+        if self._mode is Mode.DRY_RUN:
             return DryRunFavoriteReplier(self._logger)
-        return VintedFavoriteReplier(self._driver_for(account), self._settings, self._logger)
+        return VintedFavoriteReplier(
+            self._driver_for(account), self._settings, self._logger, account=account
+        )
 
     def release(self, account: str) -> None:
         driver = self._drivers.pop(account, None)

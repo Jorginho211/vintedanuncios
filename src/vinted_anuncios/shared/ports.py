@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
-from .models import Listing, PublishResult, ReplyResult
+from .models import FavoriteScanResult, Listing, PublishResult, ReplyResult
 
 
 class ElementPort(Protocol):
@@ -22,6 +22,8 @@ class ElementPort(Protocol):
 
     def get_attribute(self, name: str) -> str | None: ...
 
+    def find_element(self, by: str, value: str) -> ElementPort: ...
+
 
 class DriverPort(Protocol):
     """Interfaz mínima del navegador; el runner no conoce Selenium."""
@@ -32,6 +34,21 @@ class DriverPort(Protocol):
 
     def find_elements(self, by: str, value: str) -> Sequence[ElementPort]: ...
 
+    @property
+    def current_url(self) -> str: ...
+
+    @property
+    def current_window_handle(self) -> str: ...
+
+    @property
+    def window_handles(self) -> Sequence[str]: ...
+
+    def execute_script(self, script: str, *args: object) -> object: ...
+
+    def switch_to_window(self, handle: str) -> None: ...
+
+    def close(self) -> None: ...
+
     def quit(self) -> None: ...
 
 
@@ -40,6 +57,8 @@ class ListingPublisher(Protocol):
 
 
 class FavoriteReplier(Protocol):
+    def scan_favorites(self) -> FavoriteScanResult: ...
+
     def reply(self, template: str) -> ReplyResult: ...
 
 

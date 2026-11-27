@@ -2,7 +2,7 @@
 
 ## 1. Propósito
 
-Herramienta **local** y de uso personal que, desde un árbol de carpetas, publica anuncios en Vinted. La respuesta al primer mensaje del comprador tras una alerta de favorito existe como comando manual (`vinted reply`), retirado temporalmente de barridos y del scheduler por no estar completo ni probado (plan 023).
+Herramienta **local** y de uso personal que, desde un árbol de carpetas, publica anuncios en Vinted. También inspecciona notificaciones de favoritos por cuenta (`vinted reply`) para detectar artículos añadidos a favoritos; esta fase solo lista y no envía mensajes. El envío automático queda para un plan posterior (planes 023, 027).
 
 No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 
@@ -26,7 +26,7 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 | Entorno y dependencias | Poetry (`pyproject.toml`, `poetry.lock`) |
 | Automatización | Selenium + Firefox (Docker, `docker-compose.yaml`) |
 | Caption | Nombre del archivo de foto; solo `pathlib`, sin librerías de metadatos |
-| Scheduler | APScheduler: publicación `0 16 * * *`, `Europe/Madrid` configurable por `TIMEZONE`. `REPLY_CRON` se conserva pero el job de favoritos está retirado (plan 023) |
+| Scheduler | APScheduler: publicación `0 16 * * *` y inspección de favoritos con intervalo aleatorio real de 30-60 min, `Europe/Madrid` configurable por `TIMEZONE` (plan 027) |
 | CLI | Typer |
 | Calidad | Ruff, mypy estricto, pytest, pre-commit (Ruff + mypy + detect-secrets), pip-audit manual |
 | Contenedores | `Dockerfile` (solo dependencias de producción) + `docker-compose.yaml` con `selenium` y `vinted` (plan 024) |
@@ -76,13 +76,12 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
 - El formulario usa la categoría antes del primer punto (`Cortavientos.General` → `Cortavientos`).
 - Talla: `width_cm` es el ancho plano de la prenda (media vuelta) y `length_cm` el largo. La tabla `pants` va de W23 a W38 (28,58–48,90 cm de ancho plano, `W × 1,27`) y produce `WXX | ESXX` con `ES = W + 10`. La tabla `top` es vintage y usa una matriz ancho × largo de `XXXS` a `XXXL`: el ancho manda y un largo tres bandas o más más corto baja una talla; los extremos de `XXXS`/`XXXL` quedan abiertos. Solo `Pantalones Anchos` usa `pants`. Medidas fuera de tabla son error de escaneo. La misma talla se sustituye en `{{TALLA}}` y se busca en el campo «Talla» de Vinted: se elige la primera opción del DOM que contenga `WXX` o `ESXX`; si no existe, no se publica.
 - `Data/description.txt`: descripción común a todas las categorías. Si aparece `{{TALLA}}`, se sustituye por la talla calculada.
-- `Data/reply_added_favorites.txt`: plantilla global usada sólo por `vinted reply`.
-  Si falta o está vacía, ese comando termina con error y código 1.
+- `Data/reply_added_favorites.txt`: plantilla reservada para la fase futura de
+  envío de respuestas. `vinted reply` no la exige en la fase de inspección.
 - Las variables de entorno se leen y validan una sola vez en `shared/settings.py`;
   `config.py` queda reservado a la configuración de dominio de `Data/`. Los nombres
-  de entorno van en inglés, igual que los identificadores de código. `REPLY_CRON`
-  se conserva validada pero está reservada e inactiva mientras el job de
-  favoritos siga retirado.
+  de entorno van en inglés, igual que los identificadores de código. La inspección
+  de favoritos no usa cron: se programa con intervalo aleatorio real de 30-60 min.
 
 ### Árbol
 
@@ -115,6 +114,7 @@ sessions/<Cuenta>/                    (perfil Firefox in situ; ignorado por Git)
 - Escaneo de secretos en pre-commit.
 - Logs con identificadores y fechas, nunca texto de mensajes de compradores.
 - Pausas configurables entre anuncios y, en `vinted reply`, entre cuentas por estabilidad.
+- Lock global cross-process de Selenium (`sessions/.selenium.lock`) para evitar solapes entre jobs y comandos manuales.
 - Revisión manual de dependencias con `pip-audit`.
 
 ## 7. Pendientes documentados

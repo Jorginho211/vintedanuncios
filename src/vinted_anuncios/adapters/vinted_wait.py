@@ -78,6 +78,23 @@ def scroll_next_page(driver: DriverPort, css: str) -> bool:
     return bool(cast(WebDriver, driver).execute_script(script, css))
 
 
+def scroll_window(driver: DriverPort, amount: float = 900) -> bool:
+    """Desplaza la ventana principal; devuelve si `scrollY` avanzó."""
+    script = """
+    var before = window.scrollY;
+    window.scrollBy(0, arguments[0]);
+    return window.scrollY > before;
+    """
+    return bool(cast(WebDriver, driver).execute_script(script, amount))
+
+
+def wait_for_page_ready(driver: DriverPort, timeout: float) -> None:
+    """Espera a que el documento termine de cargar."""
+    _wait(driver, timeout).until(
+        lambda current: current.execute_script("return document.readyState") == "complete"
+    )
+
+
 def click_css(driver: DriverPort, css: str, timeout: float, *, clickable: bool = True) -> None:
     """Busca y pulsa en un solo intento, repitiendo si el nodo queda obsoleto."""
 
@@ -104,6 +121,26 @@ def click_xpath(driver: DriverPort, xpath: str, timeout: float) -> None:
 
 def go_back(driver: DriverPort) -> None:
     cast(WebDriver, driver).back()
+
+
+def open_tab(driver: DriverPort, url: str) -> str:
+    web_driver = cast(WebDriver, driver)
+    handles_before = set(web_driver.window_handles)
+    web_driver.switch_to.new_window("tab")
+    web_driver.get(url)
+    for handle in web_driver.window_handles:
+        if handle not in handles_before:
+            web_driver.switch_to.window(handle)
+            return handle
+    return web_driver.current_window_handle
+
+
+def close_current_tab(driver: DriverPort, main_handle: str) -> None:
+    web_driver = cast(WebDriver, driver)
+    if web_driver.current_window_handle != main_handle:
+        web_driver.close()
+    if main_handle in web_driver.window_handles:
+        web_driver.switch_to.window(main_handle)
 
 
 def accept_alert(driver: DriverPort) -> bool:

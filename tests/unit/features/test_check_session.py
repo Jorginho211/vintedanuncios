@@ -26,6 +26,27 @@ class FakeDriver:
     def find_elements(self, by: str, value: str) -> Sequence[ElementPort]:
         return ()
 
+    @property
+    def current_url(self) -> str:
+        return ""
+
+    @property
+    def current_window_handle(self) -> str:
+        return "main"
+
+    @property
+    def window_handles(self) -> Sequence[str]:
+        return ("main",)
+
+    def execute_script(self, script: str, *args: object) -> object:
+        return None
+
+    def switch_to_window(self, handle: str) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
     def quit(self) -> None:
         self.quit_calls += 1
 

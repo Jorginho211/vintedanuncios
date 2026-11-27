@@ -56,3 +56,20 @@ class PublishResult:
 class ReplyResult:
     replied: tuple[str, ...]
     errors: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FavoriteNotification:
+    """Notificación de favorito inspeccionada, sin datos personales."""
+
+    account: str
+    url: str
+    notification_id: str
+    replied: bool
+
+
+@dataclass(frozen=True, slots=True)
+class FavoriteScanResult:
+    notifications: tuple[FavoriteNotification, ...]
+    stopped_reason: str
+    errors: tuple[str, ...]

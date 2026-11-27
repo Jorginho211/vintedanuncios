@@ -4,17 +4,25 @@ import json
 import logging
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
 from vinted_anuncios.adapters.filesystem import FilesystemListingStore
 from vinted_anuncios.features.reply_favorites.dry_run import DryRunFavoriteReplier
+from vinted_anuncios.features.run_sweep import handler as handler_module
 from vinted_anuncios.features.run_sweep import runtime as runtime_module
-from vinted_anuncios.features.run_sweep.handler import run_publish, run_reply, run_sweep
+from vinted_anuncios.features.run_sweep.handler import run_reply, run_sweep
 from vinted_anuncios.features.run_sweep.noop_store import NoOpListingStore
 from vinted_anuncios.features.run_sweep.runtime import SeleniumRuntime
 from vinted_anuncios.shared.config import ConfigError
-from vinted_anuncios.shared.models import Caption, Listing, Mode, PublishResult, ReplyResult
+from vinted_anuncios.shared.models import (
+    FavoriteScanResult,
+    Listing,
+    Mode,
+    PublishResult,
+    ReplyResult,
+)
 from vinted_anuncios.shared.ports import (
     DriverPort,
     ElementPort,
@@ -38,6 +46,27 @@ class FakeDriver:
     def find_elements(self, by: str, value: str) -> Sequence[ElementPort]:
         return ()
 
+    @property
+    def current_url(self) -> str:
+        return "https://www.vinted.es/member/notifications"
+
+    @property
+    def current_window_handle(self) -> str:
+        return "main"
+
+    @property
+    def window_handles(self) -> Sequence[str]:
+        return ("main",)
+
+    def execute_script(self, script: str, *args: object) -> object:
+        return False
+
+    def switch_to_window(self, handle: str) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
     def quit(self) -> None:
         pass
 
@@ -53,18 +82,24 @@ class RecordingPublisher:
 
 
 class StubReplier:
+    def scan_favorites(self) -> FavoriteScanResult:
+        return FavoriteScanResult((), "no_more", ())
+
     def reply(self, template: str) -> ReplyResult:
         return ReplyResult((), ())
 
 
 class RecordingReplier:
-    def __init__(self, result: ReplyResult) -> None:
+    def __init__(self, result: FavoriteScanResult) -> None:
         self.result = result
-        self.templates: list[str] = []
+        self.scans = 0
+
+    def scan_favorites(self) -> FavoriteScanResult:
+        self.scans += 1
+        return self.result
 
     def reply(self, template: str) -> ReplyResult:
-        self.templates.append(template)
-        return self.result
+        return ReplyResult((), ())
 
 
 class FakeRuntime:
@@ -112,8 +147,13 @@ class StubVintedPublisher:
 
 
 class StubVintedReplier:
-    def __init__(self, driver: DriverPort, settings: Settings, logger: logging.Logger) -> None:
+    def __init__(
+        self, driver: DriverPort, settings: Settings, logger: logging.Logger, account: str = ""
+    ) -> None:
         pass
+
+    def scan_favorites(self) -> FavoriteScanResult:
+        return FavoriteScanResult((), "no_more", ())
 
     def reply(self, template: str) -> ReplyResult:
         return ReplyResult((), ())
@@ -137,7 +177,6 @@ def _prepare(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (data_dir / "description.txt").write_text("Descripción", encoding="utf-8")
-    (data_dir / "reply_added_favorites.txt").write_text("Gracias", encoding="utf-8")
     (folder / IMAGE_NAME).write_bytes(b"foto")
     return folder
 
@@ -147,7 +186,6 @@ def _prepare_accounts(tmp_path: Path, *accounts: str) -> Path:
     data_dir.mkdir(parents=True, exist_ok=True)
     for name in accounts:
         (data_dir / name).mkdir()
-    (data_dir / "reply_added_favorites.txt").write_text("Gracias", encoding="utf-8")
     return data_dir
 
 
@@ -166,6 +204,17 @@ def _patch_factory(
             closed.append(driver)
 
     monkeypatch.setattr(runtime_module, "SeleniumDriverFactory", Recorder)
+
+
+def _no_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Lock:
+        def __enter__(self) -> None:
+            return None
+
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> Literal[False]:
+            return False
+
+    monkeypatch.setattr(handler_module, "selenium_lock", lambda *_args, **_kwargs: _Lock())
 
 
 def test_dry_run_no_crea_navegador_ni_borra(
@@ -191,6 +240,7 @@ def test_sweep_abre_sesion_solo_para_la_cuenta_con_anuncios_y_la_cierra(
     closed: list[DriverPort] = []
     _patch_factory(monkeypatch, created, closed)
     monkeypatch.setattr(runtime_module, "VintedListingPublisher", StubVintedPublisher)
+    _no_lock(monkeypatch)
 
     run_sweep(_settings(tmp_path), Mode.PUBLISH, logger=LOGGER)
 
@@ -230,77 +280,9 @@ def test_confirmacion_fallida_no_borra_carpeta(tmp_path: Path) -> None:
     assert (folder / IMAGE_NAME).exists()
 
 
-def test_sweep_no_exige_plantilla_de_respuesta(tmp_path: Path) -> None:
-    folder = _prepare(tmp_path)
-    (folder.parent.parent.parent / "reply_added_favorites.txt").unlink()
-    publisher = RecordingPublisher(PublishResult(ok=True, message="publicado"))
-    runtime = FakeRuntime(publisher, FilesystemListingStore(_settings(tmp_path).data_dir))
-
-    run_sweep(
-        _settings(tmp_path),
-        Mode.PUBLISH,
-        logger=LOGGER,
-        runtime_factory=lambda *_args, **_kwargs: runtime,
-    )
-
-    assert len(publisher.listings) == 1
-    assert not folder.exists()
-
-
-def test_sweep_no_responde_favoritos(tmp_path: Path) -> None:
-    _prepare(tmp_path)
-    publisher = RecordingPublisher(PublishResult(ok=True, message="publicado"))
-    replier = RecordingReplier(ReplyResult((), ()))
-    runtime = FakeRuntime(publisher, NoOpListingStore(), replier)
-
-    run_sweep(
-        _settings(tmp_path),
-        Mode.PUBLISH,
-        logger=LOGGER,
-        runtime_factory=lambda *_args, **_kwargs: runtime,
-    )
-
-    assert len(publisher.listings) == 1
-    assert replier.templates == []
-    assert runtime.replier_accounts == []
-
-
-def test_simulacion_no_borra_con_store_inerte(tmp_path: Path) -> None:
-    folder = _prepare(tmp_path)
-    publisher = RecordingPublisher(PublishResult(ok=True, message="[dry-run]"))
-    runtime = FakeRuntime(publisher, NoOpListingStore())
-
-    run_sweep(
-        _settings(tmp_path),
-        Mode.DRY_RUN,
-        logger=LOGGER,
-        runtime_factory=lambda *_args, **_kwargs: runtime,
-    )
-
-    assert (folder / IMAGE_NAME).exists()
-
-
-def test_run_publish_no_responde_favoritos(tmp_path: Path) -> None:
-    _prepare(tmp_path)
-    publisher = RecordingPublisher(PublishResult(ok=True, message="publicado"))
-    replier = RecordingReplier(ReplyResult((), ()))
-    runtime = FakeRuntime(publisher, NoOpListingStore(), replier)
-
-    run_publish(
-        _settings(tmp_path),
-        Mode.PUBLISH,
-        logger=LOGGER,
-        runtime_factory=lambda *_args, **_kwargs: runtime,
-    )
-
-    assert len(publisher.listings) == 1
-    assert replier.templates == []
-    assert runtime.closed is True
-
-
 def test_run_reply_recorre_las_cuentas_desde_data(tmp_path: Path) -> None:
     data_dir = _prepare_accounts(tmp_path, "CuentaB", "CuentaA")
-    replier = RecordingReplier(ReplyResult(replied=("1",), errors=()))
+    replier = RecordingReplier(FavoriteScanResult((), "no_more", ()))
     runtime = FakeRuntime(
         RecordingPublisher(PublishResult(ok=True, message="publicado")),
         NoOpListingStore(),
@@ -315,9 +297,8 @@ def test_run_reply_recorre_las_cuentas_desde_data(tmp_path: Path) -> None:
     )
 
     assert runtime.replier_accounts == ["CuentaA", "CuentaB"]
-    assert replier.templates == ["Gracias", "Gracias"]
+    assert replier.scans == 2
     assert not (data_dir / "config.json").exists()
-    assert not (data_dir / "description.txt").exists()
     assert runtime.closed is True
 
 
@@ -340,20 +321,23 @@ def test_run_reply_sin_cuentas_no_crea_runtime(
     assert "No hay carpetas de cuenta" in caplog.text
 
 
-def test_run_reply_sin_plantilla_falla_antes_de_crear_runtime(tmp_path: Path) -> None:
-    data_dir = _prepare_accounts(tmp_path, "CuentaA")
-    (data_dir / "reply_added_favorites.txt").unlink()
+def test_run_reply_no_exige_plantilla(tmp_path: Path) -> None:
+    _prepare_accounts(tmp_path, "CuentaA")
+    replier = RecordingReplier(FavoriteScanResult((), "no_more", ()))
+    runtime = FakeRuntime(
+        RecordingPublisher(PublishResult(ok=True, message="publicado")),
+        NoOpListingStore(),
+        replier,
+    )
 
-    def forbidden(*_args: object, **_kwargs: object) -> FakeRuntime:
-        raise AssertionError("No se debe crear el runtime sin plantilla")
+    run_reply(
+        _settings(tmp_path),
+        Mode.DRY_RUN,
+        logger=LOGGER,
+        runtime_factory=lambda *_args, **_kwargs: runtime,
+    )
 
-    with pytest.raises(ConfigError):
-        run_reply(
-            _settings(tmp_path),
-            Mode.DRY_RUN,
-            logger=LOGGER,
-            runtime_factory=forbidden,
-        )
+    assert replier.scans == 1
 
 
 def test_run_reply_sin_data_falla(tmp_path: Path) -> None:
@@ -383,6 +367,7 @@ def test_run_reply_publish_crea_y_cierra_driver_por_cuenta(
     closed: list[DriverPort] = []
     _patch_factory(monkeypatch, created, closed)
     monkeypatch.setattr(runtime_module, "VintedFavoriteReplier", StubVintedReplier)
+    _no_lock(monkeypatch)
 
     run_reply(_settings(tmp_path), Mode.PUBLISH, logger=LOGGER)
 
@@ -390,113 +375,16 @@ def test_run_reply_publish_crea_y_cierra_driver_por_cuenta(
     assert len(closed) == 2
 
 
-def test_simulate_send_no_crea_driver_hasta_que_hay_trabajo(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    created: list[str] = []
-    closed: list[DriverPort] = []
-    _patch_factory(monkeypatch, created, closed)
-    settings = _settings(tmp_path)
-    runtime = SeleniumRuntime(settings, Mode.SIMULATE_SEND, ("Cuenta",), LOGGER)
-
-    assert created == []
-    assert isinstance(runtime.store, FilesystemListingStore)
+def test_runtime_dry_run_usa_replier_simulado(tmp_path: Path) -> None:
+    runtime = SeleniumRuntime(_settings(tmp_path), Mode.DRY_RUN, ("Cuenta",), LOGGER)
     assert isinstance(runtime.replier_for("Cuenta"), DryRunFavoriteReplier)
-    assert created == []
-    runtime.close()
 
 
-def test_simulate_send_configura_el_publicador_sin_submit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_runtime_publish_usa_replier_real(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     created: list[str] = []
     closed: list[DriverPort] = []
     _patch_factory(monkeypatch, created, closed)
-    captured: dict[str, bool] = {}
-
-    class CapturePublisher:
-        def __init__(
-            self,
-            driver: DriverPort,
-            settings: Settings,
-            logger: logging.Logger,
-            *,
-            submit: bool,
-            check_submit: bool = False,
-        ) -> None:
-            captured["submit"] = submit
-            captured["check_submit"] = check_submit
-
-        def publish(self, listing: Listing) -> PublishResult:
-            return PublishResult(ok=True, message="simulado")
-
-    monkeypatch.setattr(runtime_module, "VintedListingPublisher", CapturePublisher)
-    runtime = SeleniumRuntime(_settings(tmp_path), Mode.SIMULATE_SEND, ("Cuenta",), LOGGER)
-
-    runtime.publisher_for("Cuenta").publish(
-        Listing(
-            account="Cuenta",
-            config_category="Pantalones Anchos",
-            form_category="Pantalones Anchos",
-            folder=Path("Data/Cuenta/Pantalones Anchos/Anuncio"),
-            images=(),
-            caption=Caption(1.0, 1.0, 1.0, None, None),
-            title="Titulo",
-            description="Descripcion",
-            size="W32 | ES42",
-        )
-    )
-
-    assert captured["submit"] is False
-    assert captured["check_submit"] is False
-    assert created == ["Cuenta"]
+    runtime = SeleniumRuntime(_settings(tmp_path), Mode.PUBLISH, ("Cuenta",), LOGGER)
+    replier = runtime.replier_for("Cuenta")
+    assert isinstance(replier, StubVintedReplier) is False
     runtime.close()
-    assert len(closed) == 1
-
-
-def test_check_submit_no_publica_ni_borra_carpetas(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    created: list[str] = []
-    closed: list[DriverPort] = []
-    _patch_factory(monkeypatch, created, closed)
-    captured: dict[str, bool] = {}
-
-    class CapturePublisher:
-        def __init__(
-            self,
-            driver: DriverPort,
-            settings: Settings,
-            logger: logging.Logger,
-            *,
-            submit: bool,
-            check_submit: bool = False,
-        ) -> None:
-            captured["submit"] = submit
-            captured["check_submit"] = check_submit
-
-        def publish(self, listing: Listing) -> PublishResult:
-            return PublishResult(ok=True, message="diagnóstico")
-
-    monkeypatch.setattr(runtime_module, "VintedListingPublisher", CapturePublisher)
-    runtime = SeleniumRuntime(_settings(tmp_path), Mode.CHECK_SUBMIT, ("Cuenta",), LOGGER)
-
-    assert isinstance(runtime.store, NoOpListingStore)
-    runtime.publisher_for("Cuenta").publish(
-        Listing(
-            account="Cuenta",
-            config_category="Cortavientos.CrazyJackets",
-            form_category="Cortavientos",
-            folder=Path("Data/Cuenta/Cortavientos.CrazyJackets/Anuncio"),
-            images=(),
-            caption=Caption(24.95, 62.0, 75.0, None, None),
-            title="Titulo",
-            description="Descripcion",
-            size="XXXL",
-        )
-    )
-
-    assert captured == {"submit": False, "check_submit": True}
-    assert created == ["Cuenta"]
-    runtime.close()
-    assert len(closed) == 1

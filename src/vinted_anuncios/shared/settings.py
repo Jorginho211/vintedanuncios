@@ -22,7 +22,6 @@ class Settings:
     selenium_profiles_dir: Path
     selenium_url: str
     timezone: ZoneInfo
-    reply_cron: str
     wait_seconds: float
     action_delay_min: float
     action_delay_max: float
@@ -62,10 +61,6 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     except (ZoneInfoNotFoundError, ValueError) as exc:
         raise SettingsError(f"TIMEZONE no es válida: {timezone_name!r}") from exc
 
-    reply_cron = env.get("REPLY_CRON", "*/15 * * * *").strip()
-    if not reply_cron:
-        raise SettingsError("REPLY_CRON no puede estar vacía")
-
     action_delay_min = _number(env, "SELENIUM_ACTION_DELAY_MIN", 1.0, positive=False)
     action_delay_max = _number(env, "SELENIUM_ACTION_DELAY_MAX", 2.0, positive=False)
     if action_delay_min > action_delay_max:
@@ -78,7 +73,6 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         selenium_profiles_dir=Path(env.get("SELENIUM_PROFILES_DIR", "/sessions")),
         selenium_url=_check_url(env.get("SELENIUM_URL", "http://127.0.0.1:4444")),
         timezone=timezone,
-        reply_cron=reply_cron,
         wait_seconds=_number(env, "SELENIUM_WAIT_SECONDS", 15.0, positive=True),
         action_delay_min=action_delay_min,
         action_delay_max=action_delay_max,

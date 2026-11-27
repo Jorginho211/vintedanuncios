@@ -2,13 +2,13 @@
 
 ## Niveles
 
-- **Unitarios** (`tests/unit/`): `shared/` (settings, caption, títulos y contratos)
-  y `features/` (query de escaneo y comandos de publicación/respuesta). Los tests
-  de `run_sweep`, `run_publish` y `run_reply` inyectan un runtime falso: sin
-  navegador ni red. `run_sweep` equivale a `run_publish` y no llama al replier;
-  `run_reply` sigue probándose como comando manual. La CLI se prueba con
-  `CliRunner` y el scheduler con un scheduler falso de un solo job; tampoco abren
-  Selenium.
+- **Unitarios** (`tests/unit/`): `shared/` (settings, caption, títulos, lock y
+  contratos) y `features/` (query de escaneo, publicación e inspección de
+  favoritos). Los tests de `run_sweep`, `run_publish` y `run_reply` inyectan un
+  runtime falso: sin navegador ni red. `run_sweep` equivale a `run_publish` y no
+  inspecciona favoritos; `run_reply` inspecciona cuentas sin enviar mensajes. La
+  CLI se prueba con `CliRunner` y el scheduler con un scheduler falso; tampoco
+  abren Selenium.
 - **Integración** (`tests/integration/`): lectura real de la caption desde el
   nombre de una foto y comprobación de selectores contra un snapshot HTML.
 - **E2E:** no automatizado. La verificación contra Vinted se hace con

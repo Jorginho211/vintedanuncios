@@ -11,6 +11,7 @@ HOME_URL = "https://www.vinted.es"
 SELL_URL = "https://www.vinted.es/items/new"
 MESSAGES_URL = "https://www.vinted.es/messages"
 NOTIFICATIONS_URL = "https://www.vinted.es/notifications"
+MEMBER_NOTIFICATIONS_URL = "https://www.vinted.es/member/notifications"
 
 SELECTOR_SELL_LINK = 'a[href="/items/new"]'
 SELECTOR_COOKIES = "#accept-recommended-btn-handler"
@@ -61,9 +62,12 @@ XPATH_DISCARD_CHANGES = (
 )
 
 SELECTOR_NOTIFICATION = "[data-vinted='notification']"
+SELECTOR_NOTIFICATION_WRAPPER = '[data-testid="inbox-notification-intersection-wrapper"]'
+SELECTOR_REPLIED_MARKER = '[data-testid="offer-current-price-label"]'
 SELECTOR_CONVERSATION = "[data-vinted='conversation']"
 SELECTOR_MESSAGE_OUT = "[data-vinted='message-out']"
 SELECTOR_MESSAGE_INPUT = "[data-vinted-field='message']"
 SELECTOR_SEND = "[data-vinted='send-message']"
 
 FAVORITE_TEXT = "ha marcado como favorito tu artículo"
+FAVORITE_NOTIFICATION_TEXT = "a sus favoritos"

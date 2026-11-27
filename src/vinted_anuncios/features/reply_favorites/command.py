@@ -4,8 +4,7 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
-class ReplyToFavorites:
-    """Comando: responder una vez a los avisos de favorito."""
+class ScanFavoriteNotifications:
+    """Comando: inspeccionar avisos de favorito sin responder."""
 
     accounts: tuple[str, ...]
-    template: str

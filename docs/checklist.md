@@ -58,23 +58,30 @@ Antes de dar por bueno un cambio:
    - Si falla la talla, el mensaje debe incluir las etiquetas reales de las
      opciones del desplegable; si falla «Subir», debe distinguir «no se pudo
      pulsar» de «pulsado pero Vinted no navegó» (plan 026).
-9. Si el cambio afecta al reply manual (`vinted reply`):
-   - Confirmar que la plantilla existe en `Data/reply_added_favorites.txt`.
-   - Verificar que solo se responde a conversaciones nuevas con la alerta acordada.
-   - Comprobar que los logs no contienen texto de mensajes.
+9. Si el cambio afecta a la inspección de favoritos (`vinted reply`):
+   - Verificar que recorre cuentas desde `Data/<Cuenta>/` y usa su sesión.
+   - Confirmar que navega a `/member/notifications`.
+   - Confirmar que recoge máximo 40 wrappers `inbox-notification-intersection-wrapper`
+     cuyo contenido contenga “a sus favoritos”.
+   - Confirmar que abre cada notificación en pestaña secuencial, vuelve a la
+     principal y cierra la pestaña secundaria.
+   - Confirmar que se detiene al detectar `offer-current-price-label`.
+   - Confirmar que no envía mensajes ni rellena inputs.
+   - Comprobar que los logs no contienen texto de compradores.
 10. Comprobar los comandos separados en simulación:
-    - `poetry run vinted publish --dry-run`: publica anuncios, no responde favoritos.
-    - `poetry run vinted reply --dry-run`: recorre las carpetas de cuenta, no
-      escanea ni publica.
+    - `poetry run vinted publish --dry-run`: publica anuncios, no inspecciona favoritos.
+    - `poetry run vinted reply --dry-run`: recorre cuentas y simula inspección, sin
+      plantilla, sin escaneo de anuncios y sin publicar.
     - `poetry run vinted sweep --dry-run`: publica como `vinted --dry-run`, sin
-      responder favoritos ni abrir un segundo driver por cuenta.
-    - `poetry run vinted --schedule`: con `--dry-run`, comprobar en los logs que
-      sólo se registra el job `publicacion_diaria`.
+      inspeccionar favoritos.
+    - `poetry run vinted --schedule`: comprobar en logs que se registran
+      `publicacion_diaria` y `respuesta_favoritos`, y que el próximo reply cae a
+      30-60 minutos.
 11. Renombrar temporalmente `Data/config.json`: `vinted reply --dry-run` debe seguir
     terminando con código 0, mientras `vinted publish --dry-run` termina con código 1.
 12. Con `Data/` sin carpetas de cuenta, `vinted reply --dry-run` avisa y termina con
-    código 0; sin plantilla de respuesta, termina con código 1.
-13. Revisar que `vinted --help` muestra `publish`, `reply`, `sweep` y
-    `--simulate-send`, y que `REPLY_CRON` aparece documentada como reservada en
-    `.env.example`, junto a `SELENIUM_DATA_DIR`.
+    código 0. No debe exigir plantilla de respuesta.
+13. Revisar que `vinted --help` muestra `publish`, `reply`, `sweep`,
+    `--simulate-send` y `--schedule`, y que `.env.example` documenta el intervalo
+    aleatorio 30-60 min sin `REPLY_CRON`.
 14. `pip-audit` antes de actualizar dependencias.

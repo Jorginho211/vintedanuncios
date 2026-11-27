@@ -2,8 +2,9 @@
 
 Herramienta local que recorre `Data/<Cuenta>/<Categoría>/<Anuncio>/`, lee la
 caption del nombre de cada archivo de foto y publica los anuncios en Vinted.
-Además ofrece `vinted reply` para responder favoritos de forma manual; esa parte
-está retirada temporalmente de los barridos y del scheduler (plan 023).
+Además ejecuta `vinted reply` para inspeccionar notificaciones de favoritos
+(sin enviar mensajes en esta fase) y el scheduler puede programar esa inspección
+cada 30-60 minutos de forma aleatoria (plan 027).
 
 **Predeterminado seguro:** sin `--publish` el programa solo valida y muestra lo
 que haría. Los tres modos (`--dry-run`, `--simulate-send`, `--publish`) son
@@ -25,17 +26,16 @@ cp Data/reply_added_favorites.txt.example Data/reply_added_favorites.txt
 |---|---|---|
 | `Data/config.json` | `Data/config.json.example` | Títulos por categoría y variante de marca |
 | `Data/description.txt` | `Data/description.txt.example` | Descripción común (se usa tal cual) |
-| `Data/reply_added_favorites.txt` | `Data/reply_added_favorites.txt.example` | Plantilla de respuesta a favoritos |
+| `Data/reply_added_favorites.txt` | `Data/reply_added_favorites.txt.example` | Plantilla reservada para el envío futuro de respuestas |
 
 **`config.json` y `description.txt` son obligatorios para publicar** (`vinted
 publish` y `vinted sweep`). Si falta alguno, el programa se detiene con un error
 que indica qué plantilla copiar y termina con código 1: no escanea ni publica.
-Esos barridos ya no leen la plantilla de respuesta.
 
-`vinted reply` solo necesita las carpetas de cuenta en `Data/` y la plantilla de
-respuesta: no lee `config.json` ni `description.txt`. Si no hay carpetas de cuenta,
-avisa y termina con código 0. Si la plantilla falta o está vacía, termina con
-código 1.
+`vinted reply` inspecciona notificaciones de favoritos por cuenta: solo necesita
+el árbol `Data/<Cuenta>/`. No lee `config.json`, `description.txt` ni la plantilla
+de respuesta en esta fase. Si no hay carpetas de cuenta, avisa y termina con
+código 0.
 
 ## Uso con Docker
 
@@ -141,16 +141,18 @@ poetry run vinted --publish --schedule      # en el host
 docker compose up -d vinted                 # en contenedor (arranca con --publish --schedule)
 ```
 
-El job de favoritos está retirado temporalmente (plan 023): `--schedule` registra
-sólo `publicacion_diaria`.
+Con `--schedule` se registran `publicacion_diaria` (16:00, `TIMEZONE`) y
+`respuesta_favoritos`, que se reprograma con un retraso aleatorio real de 30-60
+minutos tras cada ejecución. Ambos jobs usan un lock global de Selenium para no
+pisar sesiones.
 
-## Publicar y responder por separado
+## Publicar e inspeccionar por separado
 
 ```bash
-# Solo publica anuncios pendientes; no revisa favoritos
+# Solo publica anuncios pendientes; no inspecciona favoritos
 poetry run vinted publish --dry-run
 
-# Revisa favoritos en cada cuenta; no escanea ni publica (bajo demanda)
+# Inspecciona favoritos en cada cuenta; no escanea ni publica ni envía mensajes
 poetry run vinted reply --dry-run
 
 # Barrido de publicación bajo demanda (igual que `vinted --dry-run`)
@@ -160,10 +162,10 @@ poetry run vinted sweep --dry-run
 poetry run vinted sweep --simulate-send
 ```
 
-`vinted`, `publish` y `sweep` publican sin responder favoritos. El reply queda
-como acción manual con `vinted reply` y no acepta `--schedule`. `REPLY_CRON` se
-conserva en la configuración (`*/15 * * * *` por defecto) pero está reservada e
-inactiva: el job de favoritos y su bloqueo compartido están retirados (plan 023).
+`vinted`, `publish` y `sweep` publican sin inspeccionar favoritos. `vinted reply`
+inspecciona notificaciones en `/member/notifications`, recoge hasta 40 wrappers
+con “a sus favoritos”, abre cada una en pestaña secuencialmente y se detiene si
+detecta `offer-current-price-label`. Esta fase no envía respuestas.
 
 ## Verificar una sesión
 
@@ -213,12 +215,12 @@ documenta con sus valores por defecto:
 | `PAUSE_BETWEEN_LISTINGS` | `0` | Pausa entre anuncios |
 | `PAUSE_BETWEEN_ACCOUNTS` | `0` | Pausa entre cuentas |
 | `TIMEZONE` | `Europe/Madrid` | Zona horaria de los jobs (`TZ` es ignorada) |
-| `REPLY_CRON` | `*/15 * * * *` | Reservada: el job de favoritos está retirado |
 
-Las pausas `SELENIUM_ACTION_DELAY_*` se aplican a todo el flujo con navegador
-(formulario y, en `vinted reply`, favoritos) para dar tiempo al DOM a actualizarse;
-`--dry-run` no usa Selenium y por eso no se retrasa. Pon ambos valores a `0` para
-desactivarlas.
+La inspección de favoritos se programa con intervalo aleatorio real de 30-60
+minutos entre ejecuciones. Las pausas `SELENIUM_ACTION_DELAY_*` se aplican a todo
+el flujo con navegador (formulario e inspección de favoritos) para dar tiempo al
+DOM a actualizarse; `--dry-run` no usa Selenium y por eso no se retrasa. Pon ambos
+valores a `0` para desactivarlas.
 
 ## Estado
 
