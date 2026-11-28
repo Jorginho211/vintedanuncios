@@ -139,7 +139,7 @@ class VintedFavoriteReplier:
 
     def _is_replied(self, timeout: float) -> bool:
         try:
-            wait_for(self._driver, selectors.SELECTOR_REPLIED_MARKER, 60.0)
+            wait_for(self._driver, selectors.SELECTOR_REPLIED_MARKER, timeout)
             return True
         except TimeoutException:
             return False
@@ -232,6 +232,9 @@ class VintedFavoriteReplier:
                             "La notificación %s tardó en quedar lista", target.notification_id
                         )
                     self._pause(1.2, 2.8)
+
+                    # Esperar a que salga la modal del precio antes de determinar si esta cargado
+                    wait_for(self._driver, selectors.SELECTOR_OFFER_PRICE_INPUT, timeout)
 
                     if self._is_replied(timeout):
                         notifications.append(
