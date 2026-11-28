@@ -138,11 +138,20 @@ class VintedFavoriteReplier:
         return targets
 
     def _is_replied(self, timeout: float) -> bool:
+        has_messages = True
+        has_offer = True
+
+        try:
+            wait_for(self._driver, selectors.SELECTOR_CONVERSATION_MESSAGES, timeout)
+        except TimeoutException:
+            has_messages = False
+
         try:
             wait_for(self._driver, selectors.SELECTOR_REPLIED_MARKER, timeout)
-            return True
         except TimeoutException:
-            return False
+            has_offer = False
+
+        return has_offer or has_messages
 
     def _offer_and_message(
         self, notification_id: str, template: str | None
