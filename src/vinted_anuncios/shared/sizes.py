@@ -24,7 +24,7 @@ _PANTS_RANGES: tuple[tuple[float, float, int], ...] = (
     (42.55, 43.82, 34),
     (43.82, 45.09, 35),
     (45.09, 46.36, 36),
-    (47.63, 48.90, 38),
+    (46.36, 48.90, 38),
 )
 
 # Tops vintage: bandas de ancho (pecho plano) y de largo (hombro a bajo).
