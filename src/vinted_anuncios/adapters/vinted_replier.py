@@ -139,7 +139,7 @@ class VintedFavoriteReplier:
 
     def _is_replied(self, timeout: float) -> bool:
         try:
-            wait_for(self._driver, selectors.SELECTOR_REPLIED_MARKER, min(timeout, 5.0))
+            wait_for(self._driver, selectors.SELECTOR_REPLIED_MARKER, 60.0)
             return True
         except TimeoutException:
             return False
