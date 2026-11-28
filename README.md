@@ -4,7 +4,8 @@ Herramienta local que recorre `Data/<Cuenta>/<Categoría>/<Anuncio>/`, lee la
 caption del nombre de cada archivo de foto y publica los anuncios en Vinted.
 Además ejecuta `vinted reply` para responder a los favoritos pendientes: ofrece
 2 € menos que el precio anterior y envía una plantilla. El scheduler puede
-programar ese barrido cada 30-60 minutos de forma aleatoria (planes 027 y 028).
+programar ese barrido cada 30-60 minutos de forma aleatoria, solo entre las 08:00
+y las 01:00 de `TIMEZONE` (planes 027, 028 y 029).
 
 **Predeterminado seguro:** sin `--publish` el programa solo valida y muestra lo
 que haría. Los tres modos (`--dry-run`, `--simulate-send`, `--publish`) son
@@ -143,8 +144,10 @@ docker compose up -d vinted                 # en contenedor (arranca con --publi
 
 Con `--schedule` se registran `publicacion_diaria` (16:00, `TIMEZONE`) y
 `respuesta_favoritos`, que se reprograma con un retraso aleatorio real de 30-60
-minutos tras cada ejecución. Ambos jobs usan un lock global de Selenium para no
-pisar sesiones.
+minutos tras cada ejecución. El reply no se dispara entre las 01:00 y las 08:00
+de `TIMEZONE`: si el cálculo cae en esa franja, se difiere a las 08:00 más un
+retardo aleatorio de 0-30 minutos. Ambos jobs usan un lock global de Selenium
+para no pisar sesiones.
 
 ## Publicar y responder por separado
 
@@ -224,7 +227,10 @@ documenta con sus valores por defecto:
 | `TIMEZONE` | `Europe/Madrid` | Zona horaria de los jobs (`TZ` es ignorada) |
 
 La respuesta de favoritos se programa con intervalo aleatorio real de 30-60
-minutos entre ejecuciones. Las pausas `SELENIUM_ACTION_DELAY_*` se aplican a todo
+minutos entre ejecuciones. Ningún disparo programado cae entre las 01:00 y las
+08:00 de `TIMEZONE`: si el cálculo termina en esa franja, se difiere a las 08:00
+más 0-30 minutos. El comando manual `vinted reply` no está sujeto a este horario.
+Las pausas `SELENIUM_ACTION_DELAY_*` se aplican a todo
 el flujo con navegador (formulario y reply) para dar tiempo al
 DOM a actualizarse; `--dry-run` no usa Selenium y por eso no se retrasa. Pon ambos
 valores a `0` para desactivarlas.

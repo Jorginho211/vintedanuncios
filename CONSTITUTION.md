@@ -13,7 +13,7 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 3. **Separación de capas.** `shared/` contiene datos y contratos; los handlers de
    `features/` contienen los casos de uso; Selenium y el filesystem viven aislados
    en `adapters/`. Los puertos de `shared/ports.py` definen la frontera.
-4. **Sin estado local para las respuestas.** Vinted determina qué conversación fue respondida; solo se escriben logs de auditoría (sin datos personales).
+4. **Sin estado local para las respuestas.** Vinted determina qué conversación fue respondida (marcador `offer-current-price-label` o mensajes existentes en la conversación); solo se escriben logs de auditoría (sin datos personales).
 5. **Seguridad por defecto.** Perfiles de navegador fuera de Git, Selenium escuchando solo en `127.0.0.1`, escaneo de secretos, logs sin mensajes de compradores.
 6. **Sin evasión de controles de la plataforma.** El riesgo de las condiciones de servicio de Vinted fue revisado y aceptado por el propietario. No se implementan mecanismos anti-CAPTCHA ni de ocultación de automatización. Las pausas configurables de `ActionPacer` existen solo para dar tiempo al DOM y evitar carreras, no para simular comportamiento humano.
 7. **Toda decisión importante se consulta.** Cada funcionalidad nueva se registra en `plans/` antes de implementarse.
@@ -26,7 +26,7 @@ No es un servicio multiusuario, no expone API y no se ejecuta en la nube.
 | Entorno y dependencias | Poetry (`pyproject.toml`, `poetry.lock`) |
 | Automatización | Selenium + Firefox (Docker, `docker-compose.yaml`) |
 | Caption | Nombre del archivo de foto; solo `pathlib`, sin librerías de metadatos |
-| Scheduler | APScheduler: publicación `0 16 * * *` y respuesta de favoritos con intervalo aleatorio real de 30-60 min, `Europe/Madrid` configurable por `TIMEZONE` (planes 027 y 028) |
+| Scheduler | APScheduler: publicación `0 16 * * *` y respuesta de favoritos con intervalo aleatorio real de 30-60 min, sin disparos entre 01:00 y 08:00, `Europe/Madrid` configurable por `TIMEZONE` (planes 027, 028 y 029) |
 | CLI | Typer |
 | Calidad | Ruff, mypy estricto, pytest, pre-commit (Ruff + mypy + detect-secrets), pip-audit manual |
 | Contenedores | `Dockerfile` (solo dependencias de producción) + `docker-compose.yaml` con `selenium` y `vinted` (plan 024) |
@@ -82,6 +82,8 @@ precio;medidas(ancho x largo);marca(opcional);modelo(opcional)
   `config.py` queda reservado a la configuración de dominio de `Data/`. Los nombres
   de entorno van en inglés, igual que los identificadores de código. La inspección
   de favoritos no usa cron: se programa con intervalo aleatorio real de 30-60 min.
+  El scheduler no la dispara entre las 01:00 y las 08:00 de `TIMEZONE`; si el
+  cálculo cae ahí, se difiere a las 08:00 más 0-30 min aleatorios (plan 029).
 
 ### Árbol
 

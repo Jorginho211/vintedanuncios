@@ -72,3 +72,8 @@ respondida, ofrecer 2 € menos que el precio anterior y enviar la plantilla
   terminan con código 0 sin abrir navegador ni exigir plantilla.
 - Sin cambios en `sessions/`, sin `--publish` y sin prueba E2E contra Vinted.
   La verificación de la modal queda pendiente en `docs/checklist.md`.
+- Mantenimiento posterior (`bc2af65`, `573b78e`, `a19f100`): se espera la modal de
+  oferta antes de comprobar el estado, se amplía el timeout de la comprobación y
+  se considera respondida la conversación con mensajes existentes
+  (`conversation-message`), además del marcador original. Los tests y la
+  documentación se adaptaron a esa decisión vigente.

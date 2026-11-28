@@ -71,8 +71,9 @@ Antes de dar por bueno un cambio:
      placeholder `XX,XX €` se convierte en `XX,XX` con 2 € menos (por ejemplo
      `24,95 €` → `22,95`), se pulsa `offer-submit-button` y el texto de
      `reply_added_favorites.txt` llega a `composer--input` y se envía con Enter.
-   - Confirmar que al detectar `offer-current-price-label` no se actúa y se
-     detiene el barrido de esa cuenta.
+   - Confirmar que al detectar `offer-current-price-label` o mensajes ya
+     existentes (`conversation-message`) no se actúa y se detiene el barrido de
+     esa cuenta.
    - Confirmar que un precio ilegible o ≤ 2 € se omite con error en el log y se
      continúa con la siguiente notificación.
    - Confirmar que sin `--publish` no se rellena ningún input ni se pulsa
@@ -86,7 +87,10 @@ Antes de dar por bueno un cambio:
       inspeccionar favoritos.
     - `poetry run vinted --schedule`: comprobar en logs que se registran
       `publicacion_diaria` y `respuesta_favoritos`, y que el próximo reply cae a
-      30-60 minutos.
+      30-60 minutos fuera de la franja 01:00-08:00 de `TIMEZONE`.
+    - Sin lanzar el scheduler de madrugada: los tests de `scheduler` comprueban
+      que un disparo calculado dentro de esa franja se difiere a las 08:00 más
+      0-30 minutos aleatorios.
 11. Renombrar temporalmente `Data/config.json`: `vinted reply --dry-run` debe seguir
     terminando con código 0, mientras `vinted publish --dry-run` termina con código 1.
 12. Con `Data/` sin carpetas de cuenta, `vinted reply --dry-run` avisa y termina con
@@ -96,5 +100,5 @@ Antes de dar por bueno un cambio:
 13. Revisar que `vinted --help` muestra `publish`, `reply`, `sweep`,
     `--simulate-send` y `--schedule`; que la ayuda de `reply` indica que solo
     `--publish` escribe, y que `.env.example` documenta el intervalo aleatorio
-    30-60 min sin `REPLY_CRON`.
+    30-60 min sin `REPLY_CRON` y la franja sin disparos 01:00-08:00.
 14. `pip-audit` antes de actualizar dependencias.

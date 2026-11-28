@@ -4,9 +4,9 @@
 
 La publicación corre una vez al día y también se lanza bajo demanda. La respuesta
 a favoritos se ejecuta bajo demanda (`vinted reply`) y, con `--schedule`, cada
-30-60 minutos con intervalo aleatorio real. Abre cada conversación pendiente,
-ofrece 2 € menos y envía la plantilla; solo con `--publish` escribe en Vinted
-(planes 027 y 028). `cli` y `scheduler` leen el entorno una sola vez,
+30-60 minutos con intervalo aleatorio real, nunca entre las 01:00 y las 08:00 de
+`TIMEZONE` (plan 029). Abre cada conversación pendiente, ofrece 2 € menos y envía
+la plantilla; solo con `--publish` escribe en Vinted (planes 027 y 028). `cli` y `scheduler` leen el entorno una sola vez,
 construyen `Settings` y `Mode` y los inyectan. Por defecto trabaja en simulación;
 solo con `--publish` escribe en Vinted. `--simulate-send` recorre el formulario
 real sin pulsar «Subir».
@@ -125,7 +125,7 @@ termina con código 1 si falta alguno. `run_reply` valida el árbol de cuentas c
 | `PAUSE_BETWEEN_LISTINGS` | `0` |
 | `PAUSE_BETWEEN_ACCOUNTS` | `0` |
 | `TIMEZONE` | `Europe/Madrid` |
-| `REPLY_INTERVALO` | 30-60 min aleatorio real | No configurable por env en esta fase |
+| Intervalo del reply | 30-60 min aleatorio real; sin disparos en 01:00-08:00 y, si cae ahí, 08:00 + 0-30 min (no configurable por env; plan 029) |
 
 `load_settings(environ=None)` centraliza defaults y validación. `TZ` es ignorada
 por la aplicación y los nombres antiguos de las pausas no se reconocen: el
@@ -203,7 +203,9 @@ Como Vinted puede re-renderizar un nodo durante esas pausas, los helpers de
 - **Dos jobs programados:** publicación diaria a las 16:00 y `respuesta_favoritos`
   con intervalo aleatorio real de 30-60 minutos, ambos con `max_instances=1`,
   `coalesce=True` y lock global de Selenium. `respuesta_favoritos` se reprograma
-  tras cada ejecución.
+  tras cada ejecución. Ningún disparo cae en `[01:00, 08:00)` de `TIMEZONE`: si
+  el cálculo cae en esa franja, se difiere a las 08:00 más 0-30 minutos. Se aplica
+  al disparo inicial y a cada reprogramación (plan 029).
 - **CLI por subcomando:** `publish` y `sweep` publican; `reply` ofrece 2 € menos
   y envía la plantilla a favoritos pendientes, pero solo escribe con
   `--publish`. `--schedule` arranca los jobs programados.
@@ -234,7 +236,7 @@ la talla calculada y sus selectores se validaron con `--simulate-send`.
 
 | Paso | Selector |
 |---|---|
-| Ya respondida | `[data-testid="offer-current-price-label"]` |
+| Ya respondida | `[data-testid="offer-current-price-label"]` o `[data-testid="conversation-message"]` |
 | Precio anterior | `[data-testid="offer-price-field--input"]` (atributo `placeholder`) |
 | Enviar oferta | `[data-testid="offer-submit-button"]` |
 | Mensaje | `[data-testid="composer--input"]` (se envía con Enter) |
@@ -245,8 +247,9 @@ automatizado contra Vinted (plan 028).
 ## Riesgos conocidos / pendientes
 
 - El flujo de reply detecta notificaciones en `/member/notifications`, filtra
-  `a sus favoritos`, abre pestañas y para ante `offer-current-price-label`; en
-  las pendientes ofrece 2 € menos y envía la plantilla solo con `--publish`.
+  `a sus favoritos`, abre pestañas y para si la conversación ya tiene mensajes o
+  el marcador `offer-current-price-label`; en las pendientes ofrece 2 € menos y
+  envía la plantilla solo con `--publish`.
   Verificar la modal y el orden de acciones con `docs/checklist.md`.
 - La caption se lee del nombre del archivo con `pathlib.stem`; no se usan metadatos ni librerías externas.
 - El perfil de Firefox en `sessions/<Cuenta>/` se comprueba entre ejecuciones con
