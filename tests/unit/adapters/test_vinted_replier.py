@@ -116,6 +116,7 @@ def _build(
     send: bool,
     placeholders: Sequence[str] | None = None,
     replied: bool = False,
+    has_messages: bool = False,
     fail_first_message: bool = False,
 ) -> tuple[VintedFavoriteReplier, FakeDriver, Calls]:
     driver = FakeDriver(wrappers)
@@ -144,12 +145,19 @@ def _build(
         calls.closed.append(main_handle)
 
     def fake_wait_for(_driver: DriverPort, css: str, _timeout: float) -> ElementPort:
+        if css == selectors.SELECTOR_CONVERSATION_MESSAGES:
+            if has_messages:
+                return FakeElement()
+            raise TimeoutException("sin mensajes en la conversación")
         if css == selectors.SELECTOR_REPLIED_MARKER:
             if replied:
                 return FakeElement()
             raise TimeoutException("sin marcador de respondida")
         if css == selectors.SELECTOR_OFFER_PRICE_INPUT:
-            return FakeElement(attributes={"placeholder": prices.pop(0)})
+            # La modal se espera antes de comprobar si está respondida y después
+            # al leer el precio: mismo placeholder para la misma conversación.
+            index = max(len(calls.opened) - 1, 0)
+            return FakeElement(attributes={"placeholder": prices[index]})
         raise AssertionError(f"Selector inesperado: {css}")
 
     def fake_fill(_driver: DriverPort, css: str, value: str, _timeout: float) -> None:
@@ -230,6 +238,25 @@ def test_primera_respondida_detiene_el_barrido(monkeypatch: pytest.MonkeyPatch) 
     assert result.notifications[0].replied is True
     assert result.stopped_reason == "replied_found"
     assert calls.opened == ["https://www.vinted.es/messages/n1"]
+    assert calls.clicks == []
+    assert calls.sends == []
+
+
+def test_conversacion_con_mensajes_se_considera_respondida(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    replier, _driver, calls = _build(
+        monkeypatch,
+        [_wrapper("n1")],
+        send=True,
+        has_messages=True,
+    )
+
+    result = replier.scan_favorites(TEMPLATE)
+
+    assert len(result.notifications) == 1
+    assert result.notifications[0].replied is True
+    assert result.stopped_reason == "replied_found"
     assert calls.clicks == []
     assert calls.sends == []
 
